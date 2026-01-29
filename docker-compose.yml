@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: aca_lujan_postgres
+    environment:
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: aca_lujan_bot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatbot_network
+
+  chatbot:
+    build: .
+    container_name: aca_lujan_chatbot
+    environment:
+      DATABASE_URL: postgresql://chatbot:password@postgres:5432/aca_lujan_bot
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      DEBUG: "False"
+      LOG_LEVEL: INFO
+      SECRET_KEY: ${SECRET_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - chatbot_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  chatbot_network:
+    driver: bridge
