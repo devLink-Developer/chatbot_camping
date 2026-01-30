@@ -1,7 +1,7 @@
 @echo off
 REM Script de testing en Windows
 
-set API_URL=http://localhost:8000
+set API_URL=http://localhost:8006
 set VERIFY_TOKEN=test_token_aqui
 
 echo Testing del Chatbot ACA Lujan

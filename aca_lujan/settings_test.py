@@ -1,0 +1,27 @@
+from .settings import *  # noqa: F401,F403
+
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
+}
+
+WHATSAPP_VERIFY_TOKEN = "test-token"
+WHATSAPP_PHONE_ID = "test-phone-id"
+WHATSAPP_ACCESS_TOKEN = "test-access-token"
+WHATSAPP_API_BASE = "https://graph.facebook.com"
+WHATSAPP_API_VERSION = "v18.0"
+
+ENABLE_SCHEDULER = False
+QUEUE_WORKER_ENABLED = False
+QUEUE_POLL_INTERVAL_SECONDS = 0.1
+QUEUE_BATCH_SIZE = 10
+QUEUE_PROCESS_INLINE = False
+RESPONSE_MIN_DELAY_MS = 0
+RESPONSE_MAX_DELAY_MS = 0
+RESPONSE_CHARS_PER_SEC = 1000
+RESPONSE_JITTER_MS = 0
+WHATSAPP_ENABLE_TYPING_INDICATOR = "False"
+WHATSAPP_TYPING_INDICATOR_TYPE = "text"

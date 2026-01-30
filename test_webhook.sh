@@ -3,7 +3,7 @@
 
 set -e
 
-API_URL="http://localhost:8000"
+API_URL="http://localhost:8006"
 VERIFY_TOKEN="test_token_aqui"
 
 echo "🧪 Testing del Chatbot ACA Luján"
@@ -101,4 +101,4 @@ echo ""
 
 echo "✅ Testing completado!"
 echo ""
-echo "💡 Tip: Usa http://localhost:8000/docs para documentación interactiva"
+echo "💡 Tip: Usa http://localhost:8006/docs para documentación interactiva"

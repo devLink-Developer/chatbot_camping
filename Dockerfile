@@ -14,15 +14,22 @@ COPY requirements.txt .
 # Instalar dependencias Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código de la aplicación
+# Copiar c??digo de la aplicaci??n
 COPY . .
 
+# Entrypoint para migraciones y static
+RUN chmod +x /app/entrypoint.sh
+
 # Exponer puerto
-EXPOSE 8000
+EXPOSE 8006
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/api/health')"
+    CMD python -c "import requests; requests.get('http://localhost:8006/api/health')"
 
-# Comando para iniciar la aplicación
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint + comando por defecto
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8006"]
+
+
+

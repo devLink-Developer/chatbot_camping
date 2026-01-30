@@ -1,36 +1,36 @@
-from sqlalchemy import Column, String, JSON, DateTime, Boolean, BigInteger
-from sqlalchemy.sql import func
-from app.database import Base
+from django.db import models
+from app.models.fields import LenientJSONField
 
 
-class Sesion(Base):
-    """Modelo para gestión de sesiones de usuario"""
+def default_historial():
+    return ["0"]
 
-    __tablename__ = "sesiones"
 
-    phone_number = Column(String(20), primary_key=True, index=True)
-    nombre = Column(String(255), nullable=True)
-    activa = Column(Boolean, default=True)
-    
-    # Estado de navegación
-    estado_actual = Column(String(50), default="0")
-    historial_navegacion = Column(JSON, default=["0"])
-    
-    # Temporal
-    ultimo_mensaje = Column(String(500), nullable=True)
-    timestamp_ultimo_mensaje = Column(BigInteger, nullable=True)
-    
-    # Control de sesión
-    inicio_sesion_ms = Column(BigInteger, nullable=False)
-    ultimo_acceso_ms = Column(BigInteger, nullable=False)
-    
-    # Metadata
-    primer_acceso = Column(Boolean, default=True)
-    intentos_fallidos = Column(BigInteger, default=0)
-    datos_extra = Column(JSON, nullable=True)
-    
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+class Sesion(models.Model):
+    """Modelo para gestion de sesiones de usuario"""
 
-    def __repr__(self):
-        return f"<Sesion {self.phone_number}>"
+    phone_number = models.CharField(max_length=20, primary_key=True)
+    nombre = models.CharField(max_length=255, null=True, blank=True)
+    activa = models.BooleanField(default=True)
+
+    estado_actual = models.CharField(max_length=50, default="0")
+    historial_navegacion = LenientJSONField(default=default_historial)
+
+    ultimo_mensaje = models.CharField(max_length=500, null=True, blank=True)
+    timestamp_ultimo_mensaje = models.BigIntegerField(null=True, blank=True)
+
+    inicio_sesion_ms = models.BigIntegerField()
+    ultimo_acceso_ms = models.BigIntegerField()
+
+    primer_acceso = models.BooleanField(default=True)
+    intentos_fallidos = models.BigIntegerField(default=0)
+    datos_extra = LenientJSONField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sesiones"
+
+    def __str__(self) -> str:
+        return f"Sesion {self.phone_number}"

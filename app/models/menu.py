@@ -1,21 +1,25 @@
-from sqlalchemy import Column, String, JSON, DateTime, Boolean
-from sqlalchemy.sql import func
-from app.database import Base
+from django.db import models
+from app.models.fields import LenientJSONField
 
 
-class Menu(Base):
-    """Modelo para menús del chatbot"""
+class Menu(models.Model):
+    """Modelo para menus del chatbot"""
 
-    __tablename__ = "menus"
+    id = models.CharField(max_length=50, primary_key=True)
+    titulo = models.CharField(max_length=255)
+    submenu = models.CharField(max_length=50, default="direct")
+    contenido = models.TextField()
+    parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="hijos"
+    )
+    orden = models.IntegerField(default=0, db_index=True)
+    opciones = LenientJSONField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    id = Column(String(50), primary_key=True, index=True)
-    titulo = Column(String(255), nullable=False)
-    submenu = Column(String(50), default="direct")  # "direct" o "nested"
-    contenido = Column(String(4000), nullable=False)
-    opciones = Column(JSON, nullable=True)  # Lista de opciones disponibles
-    activo = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    class Meta:
+        db_table = "menus"
 
-    def __repr__(self):
-        return f"<Menu {self.id}>"
+    def __str__(self) -> str:
+        return f"Menu {self.id}"

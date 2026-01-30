@@ -1,0 +1,104 @@
+[{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc5f"
+  },
+  "id": "0",
+  "menu": "0️⃣ Menú Principal",
+  "submenu": "1️⃣ ¿Qué servicios tiene el parque?\n2️⃣ ¿Qué está prohibido? 🚫\n3️⃣ Información para pasar el día\n4️⃣ Información de camping diario 🏕️\n5️⃣ Información de piletas 🏊\n6️⃣ Información sobre canchas ⚽🏀🎾\n7️⃣ Club de casas rodantes 🚐\n8️⃣ Grupos y contingentes 👥\n9️⃣ Asociate al ACA 🙌\n🔟 ¿Cómo llegar? 🚗🗺️\n0️⃣ Volver al menú principal\n1️⃣1️⃣ Información de otros centros turísticos 🌍\n1️⃣2️⃣ Trámites de socios en oficina local de Luján 📞"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc60"
+  },
+  "id": "1",
+  "menu": "1️⃣ ¿Qué servicios tiene el parque?\n0️⃣ Volver al menú principal",
+  "submenu": "direct"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc61"
+  },
+  "id": "2",
+  "menu": "2️⃣ ¿Qué está prohibido? 🚫",
+  "submenu": "🐶 A - Ingreso con mascotas\n🔊 B - Uso de Autoestero o equipos de música\n🚗 C - Practicar o aprender a conducir\n🏍️ D - Utilización de cuadriciclos o motos recreativas\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc62"
+  },
+  "id": "3",
+  "menu": "3️⃣ Información para pasar el día",
+  "submenu": "ℹ️ A - ¿Qué servicio ofrece?\n💵 B - ¿Cuánto cuesta pasar el día?\n🕒 C - ¿Horarios?\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc63"
+  },
+  "id": "4",
+  "menu": "4️⃣ Información de camping diario 🏕️",
+  "submenu": "⛺ A - ¿Qué servicio tiene la parcela?\n💰 B - ¿Costo de Parcela?\n🕒 C - ¿Horarios de camping diario?\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc64"
+  },
+  "id": "5",
+  "menu": "5️⃣ Información de piscinas 🏊",
+  "submenu": "ℹ️ A - ¿Qué servicio tiene la pileta?\n🕒 B - ¿Qué horarios tiene la pileta?\n💰 C - ¿Qué costo tiene la pileta?\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc65"
+  },
+  "id": "6",
+  "menu": "6️⃣ Información sobre canchas ⚽🏀🎾\n0️⃣ Volver al menú principal",
+  "submenu": "direct"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc66"
+  },
+  "id": "7",
+  "menu": "7️⃣ Club de casas rodantes 🚐",
+  "submenu": "ℹ️ A - Información General del servicio\n📜 B - Costos y formas de contrato\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc67"
+  },
+  "id": "8",
+  "menu": "8️⃣ Grupos y contingentes 👥\n0️⃣ Volver al menú principal",
+  "submenu": "direct"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc68"
+  },
+  "id": "9",
+  "menu": "9️⃣ Asociate al ACA 🙌",
+  "submenu": "direct"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc69"
+  },
+  "id": "10",
+  "menu": "🔟 ¿Cómo llegar? 🚗🗺️",
+  "submenu": "📍 A - Dirección\n🌐 B - Link Google Maps\n🚘 C - Link Waze\n📌 D - Coordenadas\n🚌 E - Transporte Público\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc6a"
+  },
+  "id": "11",
+  "menu": "1️⃣1️⃣ Información de otros centros turísticos 🌍",
+  "submenu": "🌐 A - Página Web turismo\n🏢 B - Oficina de turismo ACA central\n0️⃣ Volver al menú principal"
+},
+{
+  "_id": {
+    "$oid": "68a2320d3710ab71af92bc6b"
+  },
+  "id": "12",
+  "menu": "1️⃣2️⃣ Trámites de socios en oficina local de Luján 📞",
+  "submenu": "📍 A - Dirección\n📞 B - Teléfono de contacto\n0️⃣ Volver al menú principal"
+}]

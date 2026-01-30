@@ -1,21 +1,25 @@
-from sqlalchemy import Column, String, JSON, DateTime, Boolean
-from sqlalchemy.sql import func
-from app.database import Base
+from django.db import models
+from app.models.fields import LenientJSONField
 
 
-class Respuesta(Base):
+def default_siguientes_pasos():
+    return ["0", "#"]
+
+
+class Respuesta(models.Model):
     """Modelo para respuestas del chatbot"""
 
-    __tablename__ = "respuestas"
+    id = models.CharField(max_length=50, primary_key=True)
+    categoria = models.CharField(max_length=100, db_index=True)
+    contenido = models.CharField(max_length=4096)
+    siguientes_pasos = LenientJSONField(default=default_siguientes_pasos)
+    metadata_json = LenientJSONField(db_column="metadata", null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    id = Column(String(50), primary_key=True, index=True)
-    categoria = Column(String(100), nullable=False, index=True)
-    contenido = Column(String(4096), nullable=False)
-    siguientes_pasos = Column(JSON, default=["0", "#"])  # Botones de navegación
-    metadata = Column(JSON, nullable=True)  # Información adicional
-    activo = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    class Meta:
+        db_table = "respuestas"
 
-    def __repr__(self):
-        return f"<Respuesta {self.id}>"
+    def __str__(self) -> str:
+        return f"Respuesta {self.id}"

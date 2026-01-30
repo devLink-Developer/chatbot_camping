@@ -1,4 +1,4 @@
-import re
+﻿import re
 import unicodedata
 from typing import Dict, Tuple
 from enum import Enum
@@ -45,33 +45,46 @@ class ValidadorEntrada:
         "AYUDA": {"accion": "mostrar_ayuda", "target": "help"},
         "INFO": {"accion": "mostrar_ayuda", "target": "help"},
     }
+    SALUDOS = {
+        "HOLA",
+        "HOLA BOT",
+        "BUEN DIA",
+        "BUENOS DIAS",
+        "BUENAS",
+        "BUENAS TARDES",
+        "BUENAS NOCHES",
+        "SALUDOS",
+        "HI",
+        "HELLO",
+        "QUE TAL",
+    }
 
     @staticmethod
     def normalizar_entrada(texto: str) -> str:
         """
         Normaliza entrada del usuario:
-        - Convierte a mayúsculas
+        - Convierte a mayÃºsculas
         - Elimina espacios extra
         - Maneja Unicode y emojis
         """
         if not texto:
             return ""
 
-        # Remover emojis y caracteres especiales manteniendo números y letras
+        # Remover emojis y caracteres especiales manteniendo nÃºmeros y letras
         texto = ValidadorEntrada._remover_emojis(texto)
 
         # Normalizar espacios
         texto = re.sub(r"\s+", " ", texto).strip()
 
-        # A mayúsculas
+        # A mayÃºsculas
         texto = texto.upper()
 
         return texto
 
     @staticmethod
     def _remover_emojis(texto: str) -> str:
-        """Remueve emojis pero mantiene números y letras"""
-        # Patrón para detectar emojis y caracteres especiales
+        """Remueve emojis pero mantiene nÃºmeros y letras"""
+        # PatrÃ³n para detectar emojis y caracteres especiales
         emoji_pattern = re.compile(
             "["
             "\U0001F600-\U0001F64F"  # emoticons
@@ -111,7 +124,7 @@ class ValidadorEntrada:
                 accion="error",
                 target="",
                 entrada_limpia="",
-                error_msg="Entrada vacía",
+                error_msg="Entrada vacÃ­a",
             )
 
         # Verificar comandos especiales primero
@@ -125,32 +138,50 @@ class ValidadorEntrada:
                 entrada_limpia=entrada_limpia,
             )
 
-        # Validar menús principales (números 1-12)
-        if re.match(r"^(?:[1-9]|1[0-2])$", entrada_limpia):
+        # Saludos: responder con menu principal
+        entrada_saludo = re.sub(r"[^A-Z0-9 ]+", "", entrada_limpia).strip()
+        if (
+            entrada_saludo in ValidadorEntrada.SALUDOS
+            or re.match(
+                r"^(HOLA|BUEN DIA|BUENOS DIAS|BUENAS|BUENAS TARDES|BUENAS NOCHES|HI|HELLO)\b",
+                entrada_saludo,
+            )
+        ):
+            return ResultadoValidacion(
+                es_valido=True,
+                tipo=TipoEntrada.COMANDO,
+                accion="ir_menu_principal",
+                target="0",
+                entrada_limpia=entrada_limpia,
+            )
+
+        # Validar opciones numericas (1-99)
+        if re.match(r"^[0-9]{1,2}$", entrada_limpia):
             return ResultadoValidacion(
                 es_valido=True,
                 tipo=TipoEntrada.MENU_PRINCIPAL,
-                accion="ir_menu",
+                accion="seleccionar_opcion",
                 target=entrada_limpia,
                 entrada_limpia=entrada_limpia,
             )
 
-        # Validar submenús (letras A-Z)
+        # Validar opciones alfabeticas (A-Z)
         if re.match(r"^[A-Z]$", entrada_limpia):
             return ResultadoValidacion(
                 es_valido=True,
                 tipo=TipoEntrada.SUBMENU,
-                accion="ir_submenu",
+                accion="seleccionar_opcion",
                 target=entrada_limpia,
                 entrada_limpia=entrada_limpia,
             )
 
-        # Entrada inválida
+        # Entrada invÃ¡lida
         return ResultadoValidacion(
             es_valido=False,
             tipo=TipoEntrada.INVALIDO,
             accion="error",
             target="",
             entrada_limpia=entrada_limpia,
-            error_msg="Opción no válida. Selecciona un número (1-12) o una letra (A-Z)",
+            error_msg="OpciÃ³n no vÃ¡lida. Selecciona un nÃºmero o una letra (A-Z)",
         )
+

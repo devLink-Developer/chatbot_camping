@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: devlink_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devlink}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-devlink}
+      PGPORT: ${POSTGRES_PORT_INTERNAL:-5455}
+    command: ["postgres", "-p", "${POSTGRES_PORT_INTERNAL:-5455}"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devlink} -p ${POSTGRES_PORT_INTERNAL:-5455}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatbot_network
+
+  chatbot:
+    build: .
+    container_name: aca_lujan_chatbot
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      DEBUG: "False"
+      LOG_LEVEL: INFO
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: .devlink.com.ar,devlink.com.ar
+      CSRF_TRUSTED_ORIGINS: https://*.devlink.com.ar,https://devlink.com.ar
+      SECURE_PROXY_SSL_HEADER: HTTP_X_FORWARDED_PROTO,https
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chatbot_network
+      - traefik_proxy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.http.routers.chatbot.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.devlink.com.ar`) || Host(`devlink.com.ar`)"
+      - "traefik.http.routers.chatbot.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
+      - "traefik.http.routers.chatbot.tls=true"
+      - "traefik.http.routers.chatbot.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.chatbot.loadbalancer.server.port=8006"
+
+volumes:
+  postgres_data:
+
+networks:
+  chatbot_network:
+    driver: bridge
+  traefik_proxy:
+    external: true

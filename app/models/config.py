@@ -1,19 +1,19 @@
-from sqlalchemy import Column, String, JSON, DateTime
-from sqlalchemy.sql import func
-from app.database import Base
+from django.db import models
+from app.models.fields import LenientJSONField
 
 
-class Config(Base):
-    """Modelo para configuración del bot"""
+class Config(models.Model):
+    """Modelo para configuracion del bot"""
 
-    __tablename__ = "config"
+    id = models.CharField(max_length=100, primary_key=True)
+    seccion = models.CharField(max_length=100, db_index=True)
+    valor = LenientJSONField()
+    descripcion = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    id = Column(String(100), primary_key=True, index=True)
-    seccion = Column(String(100), nullable=False, index=True)
-    valor = Column(JSON, nullable=False)
-    descripcion = Column(String(255), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    class Meta:
+        db_table = "config"
 
-    def __repr__(self):
-        return f"<Config {self.id}>"
+    def __str__(self) -> str:
+        return f"Config {self.id}"
