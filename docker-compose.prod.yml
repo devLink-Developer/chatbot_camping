@@ -1,23 +1,4 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: devlink_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-devlink}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-devlink}
-      PGPORT: ${POSTGRES_PORT_INTERNAL:-5455}
-    command: ["postgres", "-p", "${POSTGRES_PORT_INTERNAL:-5455}"]
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devlink} -p ${POSTGRES_PORT_INTERNAL:-5455}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - chatbot_network
-
   chatbot:
     build: .
     container_name: aca_lujan_chatbot
@@ -32,9 +13,6 @@ services:
       ALLOWED_HOSTS: .devlink.com.ar,devlink.com.ar
       CSRF_TRUSTED_ORIGINS: https://*.devlink.com.ar,https://devlink.com.ar
       SECURE_PROXY_SSL_HEADER: HTTP_X_FORWARDED_PROTO,https
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - chatbot_network
       - traefik_proxy
@@ -47,9 +25,6 @@ services:
       - "traefik.http.routers.chatbot.tls=true"
       - "traefik.http.routers.chatbot.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.chatbot.loadbalancer.server.port=8006"
-
-volumes:
-  postgres_data:
 
 networks:
   chatbot_network:
