@@ -1,6 +1,5 @@
-# Docker Compose para UPDATES del chatbot en producción
-# NO incluye Traefik ni Cloudflared (ya están corriendo)
-# Usar para deployments normales y actualizaciones
+# Docker Compose para producción - SOLO CHATBOT
+# Traefik y Cloudflared corren de forma independiente en el servidor
 
 services:
   chatbot:
