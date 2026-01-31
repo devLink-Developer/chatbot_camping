@@ -1,42 +1,8 @@
+# Docker Compose para UPDATES del chatbot en producción
+# NO incluye Traefik ni Cloudflared (ya están corriendo)
+# Usar para deployments normales y actualizaciones
+
 services:
-  traefik:
-    image: traefik:v3.1
-    container_name: traefik
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.file.filename=/etc/traefik/dynamic.yml
-      - --providers.file.watch=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --api.dashboard=true
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Directorios de certificados del servidor montados como sólo lectura
-      # Los certificados están en el host del servidor
-      - /etc/ssl/latitudarg:/certs/latitudarg:ro
-      - /etc/ssl/secureapprove:/certs/secureapprove:ro
-      - /etc/ssl/devlink:/certs/devlink:ro
-    networks:
-      - traefik_proxy
-    restart: unless-stopped
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared-tunnel
-    command: tunnel --config /etc/cloudflared/config.yml run
-    volumes:
-      - ./cloudflared_config.yml:/etc/cloudflared/config.yml:ro
-      - /etc/cloudflared:/etc/cloudflared:ro
-    network_mode: host
-    restart: unless-stopped
-    depends_on:
-      - traefik
-
   chatbot:
     build: .
     container_name: aca_lujan_chatbot
@@ -57,8 +23,6 @@ services:
       - chatbot_network
       - traefik_proxy
     restart: unless-stopped
-    depends_on:
-      - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
