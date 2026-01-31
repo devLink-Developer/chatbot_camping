@@ -105,6 +105,56 @@ class ClienteWhatsApp:
             return {"ok": False, "message_id": None, "error": str(exc)}
 
     @staticmethod
+    def enviar_interactive_con_resultado(phone_number: str, interactive_payload: Optional[dict]) -> dict:
+        """Envia mensaje interactivo y retorna resultado con message_id si existe."""
+        if not interactive_payload:
+            return {"ok": False, "message_id": None, "error": "interactive_payload_vacio"}
+        try:
+            phone_clean = phone_number.replace("+", "").replace(" ", "")
+            url = ClienteWhatsApp._build_base_url()
+            headers = ClienteWhatsApp._build_headers()
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone_clean,
+                "type": "interactive",
+                "interactive": interactive_payload,
+            }
+
+            response = requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=ClienteWhatsApp.TIMEOUT,
+            )
+
+            if response.status_code == 200:
+                message_id = None
+                try:
+                    body = response.json()
+                    messages = body.get("messages") or []
+                    if messages:
+                        message_id = messages[0].get("id")
+                except Exception:
+                    message_id = None
+                logger.info("Mensaje interactivo enviado a %s", phone_number)
+                return {"ok": True, "message_id": message_id, "response": response.text}
+
+            logger.error(
+                "Error enviando mensaje interactivo a %s: %s - %s",
+                phone_number,
+                response.status_code,
+                response.text,
+            )
+            return {"ok": False, "message_id": None, "response": response.text}
+
+        except requests.exceptions.RequestException as exc:
+            logger.error("Error de conexion enviando interactivo a %s: %s", phone_number, exc)
+            return {"ok": False, "message_id": None, "error": str(exc)}
+        except Exception as exc:
+            logger.error("Error inesperado enviando interactivo a %s: %s", phone_number, exc)
+            return {"ok": False, "message_id": None, "error": str(exc)}
+
+    @staticmethod
     def marcar_como_leido(message_id: str, typing_indicator: bool = False, typing_type: str = "text") -> bool:
         """Marca un mensaje como leido y opcionalmente envia typing indicator."""
         if not message_id:

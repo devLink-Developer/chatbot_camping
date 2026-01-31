@@ -186,14 +186,19 @@ class WabaConfigAdmin(admin.ModelAdmin):
             required=True,
             help_text="Token de acceso de Meta (se guarda en BD).",
         )
+        interactive_enabled = forms.BooleanField(
+            required=False,
+            label="Usar interactivos",
+            help_text="Si esta activo, envia menus con mensajes interactivos.",
+        )
 
         class Meta:
             model = WabaConfig
             fields = "__all__"
 
     form = WabaConfigForm
-    list_display = ("name", "phone_id", "active", "api_version", "updated_at")
-    list_filter = ("active", "api_version")
+    list_display = ("name", "phone_id", "active", "interactive_enabled", "api_version", "updated_at")
+    list_filter = ("active", "interactive_enabled", "api_version")
     search_fields = ("name", "phone_id", "business_id", "waba_id")
     ordering = ("-active", "name")
     actions = ["activar_config"]

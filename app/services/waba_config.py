@@ -26,3 +26,17 @@ def get_whatsapp_setting(field: str, default: str = "") -> str:
     if config and getattr(config, field, None):
         return getattr(config, field)
     return getattr(settings, field, default)
+
+
+def get_whatsapp_bool(field: str, default: bool = False) -> bool:
+    config = get_active_waba_config()
+    if config is not None and hasattr(config, field):
+        value = getattr(config, field)
+        if value is not None:
+            if isinstance(value, bool):
+                return value
+            return str(value).strip().lower() in {"1", "true", "yes", "on"}
+    value = getattr(settings, field, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}

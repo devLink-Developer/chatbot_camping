@@ -16,6 +16,8 @@ from app.services import (
     ValidadorEntrada,
 )
 from app.services.cliente_whatsapp import ClienteWhatsApp
+from app.services.interactive_builder import build_menu_interactive_payloads
+from app.services.waba_config import get_whatsapp_bool
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,9 @@ def _calcular_delay_ms(respuesta_texto: str) -> int:
 def _marcar_leido_y_typing(wa_message_id: str) -> None:
     if not wa_message_id:
         return
-    typing_enabled = str(getattr(settings, "WHATSAPP_ENABLE_TYPING_INDICATOR", "False")).lower() == "true"
+    typing_enabled = (
+        str(getattr(settings, "WHATSAPP_ENABLE_TYPING_INDICATOR", "False")).lower() == "true"
+    )
     typing_type = getattr(settings, "WHATSAPP_TYPING_INDICATOR_TYPE", "text")
     ClienteWhatsApp.marcar_como_leido(
         wa_message_id,
@@ -58,6 +62,7 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     nombre_usuario = mensaje_in.nombre or ""
     alias_waba = datos.get("alias_waba") or ""
     message_type = mensaje_in.tipo or "text"
+    is_textual = message_type in ("text", "interactive")
     wa_message_id = mensaje_in.wa_message_id
 
     _marcar_leido_y_typing(wa_message_id)
@@ -83,7 +88,7 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
         tipo_contenido = "menu"
         target = "0"
         es_valido = True
-    elif message_type != "text" or not mensaje_usuario:
+    elif (not is_textual) or not mensaje_usuario:
         estado_nuevo = sesion.estado_actual
         historial_nuevo = sesion.historial_navegacion
         tipo_contenido = "menu"
@@ -102,7 +107,7 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     elif sesion_expirada:
         tipo_entrada = "sesion_expirada"
         accion = "sesion_expirada"
-    elif message_type != "text" or not mensaje_usuario:
+    elif (not is_textual) or not mensaje_usuario:
         tipo_entrada = "no_texto"
         accion = "no_texto"
     else:
@@ -124,32 +129,43 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     mensaje_in.save(update_fields=["metadata_json"])
 
     respuesta_texto = ""
+    interactive_body = ""
+    menu_id_for_interactive = None
 
     if cliente_nuevo:
         bienvenida = GestorContenido.obtener_config_mensaje("bienvenida") or ""
         contenido_menu = NavigadorBot.obtener_contenido("0", "menu")
         menu_texto = contenido_menu["contenido"] if contenido_menu else ""
         respuesta_texto = f"{bienvenida}\n\n{menu_texto}".strip()
+        interactive_body = bienvenida or "Bienvenido"
+        menu_id_for_interactive = "0"
     elif sesion_expirada:
         error_sesion = GestorContenido.obtener_config_mensaje("error_sesion") or ""
         contenido_menu = NavigadorBot.obtener_contenido("0", "menu")
         menu_texto = contenido_menu["contenido"] if contenido_menu else ""
         respuesta_texto = f"{error_sesion}\n\n{menu_texto}".strip()
-    elif message_type != "text" or not mensaje_usuario:
+        interactive_body = error_sesion or "Sesion expirada"
+        menu_id_for_interactive = "0"
+    elif (not is_textual) or not mensaje_usuario:
         contenido_menu = NavigadorBot.obtener_contenido("0", "menu")
         menu_texto = contenido_menu["contenido"] if contenido_menu else ""
         respuesta_texto = (
-            "⚠️ Solo puedo leer mensajes de texto.\n"
-            "Escribí una opción del menú o 'hola' para comenzar.\n\n"
+            "Solo puedo leer mensajes de texto.\n"
+            "Escribi una opcion del menu o 'hola' para comenzar.\n\n"
             f"{menu_texto}"
         ).strip()
+        interactive_body = "Solo puedo leer mensajes de texto."
+        menu_id_for_interactive = "0"
     elif es_valido:
         contenido = NavigadorBot.obtener_contenido(target, tipo_contenido)
         if contenido:
             respuesta_texto = contenido["contenido"]
+            if tipo_contenido == "menu":
+                interactive_body = contenido.get("titulo") or "Selecciona una opcion"
+                menu_id_for_interactive = target or "0"
         else:
             respuesta_texto = (
-                "❌ Error: No se encontró el contenido solicitado.\n"
+                "Error: No se encontro el contenido solicitado.\n"
                 "0 Volver al menu principal"
             )
     else:
@@ -162,16 +178,36 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
                 "Si queres otra informacion, elegi una opcion del menu.\n\n"
                 f"{menu_texto}"
             ).strip()
+            interactive_body = "Si queres otra informacion, elegi una opcion del menu."
+            menu_id_for_interactive = "0"
         else:
             respuesta_texto = (
                 "Opcion no valida.\n"
                 "Por favor, selecciona un numero del 1 al 12 o una letra de la A a la Z.\n\n"
                 "0 Volver al menu principal"
             )
+            interactive_body = "Opcion no valida."
+            menu_id_for_interactive = "0"
 
     GestorSesion.actualizar_estado(
         phone_number, estado_nuevo, historial_nuevo, mensaje_usuario
     )
+
+    interactive_enabled = get_whatsapp_bool(
+        "interactive_enabled",
+        getattr(settings, "WHATSAPP_INTERACTIVE_ENABLED", False),
+    )
+    interactive_payloads = None
+    interactive_fallback = None
+    if interactive_enabled and menu_id_for_interactive:
+        menu = GestorContenido.obtener_menu(menu_id_for_interactive) or GestorContenido.obtener_menu("0")
+        if menu:
+            interactive_payloads = build_menu_interactive_payloads(
+                menu,
+                body_text=interactive_body or (menu.titulo or ""),
+            )
+            if interactive_payloads:
+                interactive_fallback = respuesta_texto
 
     delay_ms = _calcular_delay_ms(respuesta_texto)
     outbound_meta = {
@@ -182,12 +218,20 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
         "respuesta_a": wa_message_id,
         "respuesta_a_id": str(mensaje_in.id),
         "delay_ms": delay_ms,
+        "interactive_enabled": interactive_enabled,
     }
+    if interactive_payloads:
+        outbound_meta["interactive_payloads"] = interactive_payloads
+        outbound_meta["interactive_fallback"] = interactive_fallback
+        outbound_tipo = "interactive"
+    else:
+        outbound_tipo = "text"
+
     GestorMensajes.registrar_salida(
         phone_number=phone_number,
         nombre=nombre_usuario,
         contenido=respuesta_texto,
-        tipo="text",
+        tipo=outbound_tipo,
         metadata=outbound_meta,
         queue_status="queued",
         process_after_ms=_now_ms() + delay_ms,
@@ -265,24 +309,78 @@ def procesar_outbound_pendientes(limit: int = 10) -> int:
     enviados = 0
     for mensaje in mensajes:
         try:
-            resultado = ClienteWhatsApp.enviar_mensaje_con_resultado(
-                mensaje.phone_number, mensaje.contenido or ""
-            )
-            ok = resultado.get("ok", False)
-            message_id = resultado.get("message_id")
-            update_fields = {
-                "processed_at_ms": _now_ms(),
-                "error": None,
-            }
-            if ok:
-                update_fields["queue_status"] = "sent"
-                update_fields["delivery_status"] = "sent"
-                update_fields["wa_message_id"] = message_id or mensaje.wa_message_id
-                enviados += 1
+            if mensaje.tipo == "interactive":
+                meta = mensaje.metadata_json or {}
+                payloads = meta.get("interactive_payloads")
+                if not payloads:
+                    single = meta.get("interactive_payload")
+                    payloads = [single] if single else []
+                fallback_text = meta.get("interactive_fallback") or mensaje.contenido or ""
+                ok = True
+                message_id = None
+                sent_count = 0
+                interactive_error = None
+                for payload in payloads:
+                    if not payload:
+                        continue
+                    resultado = ClienteWhatsApp.enviar_interactive_con_resultado(
+                        mensaje.phone_number, payload
+                    )
+                    if not resultado.get("ok", False):
+                        ok = False
+                        interactive_error = resultado.get("error") or resultado.get("response")
+                        break
+                    sent_count += 1
+                    message_id = resultado.get("message_id") or message_id
+                update_fields = {
+                    "processed_at_ms": _now_ms(),
+                    "error": None,
+                }
+                if ok:
+                    update_fields["queue_status"] = "sent"
+                    update_fields["delivery_status"] = "sent"
+                    update_fields["wa_message_id"] = message_id or mensaje.wa_message_id
+                    meta["sent_via"] = "interactive"
+                    meta["interactive_sent_count"] = sent_count
+                    enviados += 1
+                else:
+                    fallback_result = ClienteWhatsApp.enviar_mensaje_con_resultado(
+                        mensaje.phone_number, fallback_text
+                    )
+                    if fallback_result.get("ok", False):
+                        update_fields["queue_status"] = "sent"
+                        update_fields["delivery_status"] = "sent"
+                        update_fields["wa_message_id"] = (
+                            fallback_result.get("message_id") or mensaje.wa_message_id
+                        )
+                        meta["sent_via"] = "fallback_text"
+                        meta["interactive_error"] = interactive_error
+                        enviados += 1
+                    else:
+                        update_fields["queue_status"] = "failed"
+                        update_fields["error"] = fallback_result.get("error") or fallback_result.get("response")
+                        meta["interactive_error"] = interactive_error
+                update_fields["metadata_json"] = meta
+                Mensaje.objects.filter(id=mensaje.id).update(**update_fields)
             else:
-                update_fields["queue_status"] = "failed"
-                update_fields["error"] = resultado.get("error") or resultado.get("response")
-            Mensaje.objects.filter(id=mensaje.id).update(**update_fields)
+                resultado = ClienteWhatsApp.enviar_mensaje_con_resultado(
+                    mensaje.phone_number, mensaje.contenido or ""
+                )
+                ok = resultado.get("ok", False)
+                message_id = resultado.get("message_id")
+                update_fields = {
+                    "processed_at_ms": _now_ms(),
+                    "error": None,
+                }
+                if ok:
+                    update_fields["queue_status"] = "sent"
+                    update_fields["delivery_status"] = "sent"
+                    update_fields["wa_message_id"] = message_id or mensaje.wa_message_id
+                    enviados += 1
+                else:
+                    update_fields["queue_status"] = "failed"
+                    update_fields["error"] = resultado.get("error") or resultado.get("response")
+                Mensaje.objects.filter(id=mensaje.id).update(**update_fields)
         except Exception as exc:
             logger.exception("Error enviando mensaje outbound %s", mensaje.id)
             Mensaje.objects.filter(id=mensaje.id).update(
