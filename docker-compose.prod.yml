@@ -13,6 +13,8 @@ services:
       ALLOWED_HOSTS: .devlink.com.ar,devlink.com.ar,localhost,127.0.0.1,aca_lujan_chatbot
       CSRF_TRUSTED_ORIGINS: https://*.devlink.com.ar,https://devlink.com.ar
       SECURE_PROXY_SSL_HEADER: HTTP_X_FORWARDED_PROTO,https
+    expose:
+      - "8006"
     networks:
       - chatbot_network
       - traefik_proxy
@@ -20,9 +22,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
-      - "traefik.http.routers.chatbot.rule=Host(`chatbot-api.devlink.com.ar`) || HostRegexp(`{subdomain:[a-z0-9-]+}.devlink.com.ar`) || Host(`devlink.com.ar`)"
-      - "traefik.http.routers.chatbot.entrypoints=${TRAEFIK_ENTRYPOINTS:-web,websecure}"
-      - "traefik.http.routers.chatbot.tls=true"
+      - "traefik.http.routers.chatbot.rule=Host(`chatbot-api.devlink.com.ar`)"
+      - "traefik.http.routers.chatbot.entrypoints=web"
       - "traefik.http.services.chatbot.loadbalancer.server.port=8006"
 
 networks:
