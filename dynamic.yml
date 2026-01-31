@@ -1,0 +1,28 @@
+# Traefik Dynamic Configuration
+# Este archivo define las configuraciones TLS y certificados
+
+tls:
+  certificates:
+    # Certificados para latitudarg.com.ar
+    - certFile: /certs/latitudarg/fullchain.pem
+      keyFile: /certs/latitudarg/privkey.pem
+      stores:
+        - default
+    
+    # Certificados para secureapprove.com.ar
+    - certFile: /certs/secureapprove/fullchain.pem
+      keyFile: /certs/secureapprove/privkey.pem
+      stores:
+        - default
+    
+    # Certificados para devlink.com.ar
+    - certFile: /certs/devlink/fullchain.pem
+      keyFile: /certs/devlink/privkey.pem
+      stores:
+        - default
+
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/devlink/fullchain.pem
+        keyFile: /certs/devlink/privkey.pem
