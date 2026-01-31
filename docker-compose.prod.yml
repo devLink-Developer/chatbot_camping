@@ -10,7 +10,7 @@ services:
       DEBUG: "False"
       LOG_LEVEL: INFO
       SECRET_KEY: ${SECRET_KEY}
-      ALLOWED_HOSTS: .devlink.com.ar,devlink.com.ar
+      ALLOWED_HOSTS: .devlink.com.ar,devlink.com.ar,localhost,127.0.0.1,aca_lujan_chatbot
       CSRF_TRUSTED_ORIGINS: https://*.devlink.com.ar,https://devlink.com.ar
       SECURE_PROXY_SSL_HEADER: HTTP_X_FORWARDED_PROTO,https
     networks:
