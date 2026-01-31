@@ -20,8 +20,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
-      - "traefik.http.routers.chatbot.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.devlink.com.ar`) || Host(`devlink.com.ar`)"
-      - "traefik.http.routers.chatbot.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
+      - "traefik.http.routers.chatbot.rule=Host(`chatbot-api.devlink.com.ar`) || HostRegexp(`{subdomain:[a-z0-9-]+}.devlink.com.ar`) || Host(`devlink.com.ar`)"
+      - "traefik.http.routers.chatbot.entrypoints=${TRAEFIK_ENTRYPOINTS:-web,websecure}"
       - "traefik.http.routers.chatbot.tls=true"
       - "traefik.http.services.chatbot.loadbalancer.server.port=8006"
 
