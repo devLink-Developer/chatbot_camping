@@ -23,7 +23,6 @@ services:
       - "traefik.http.routers.chatbot.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.devlink.com.ar`) || Host(`devlink.com.ar`)"
       - "traefik.http.routers.chatbot.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
       - "traefik.http.routers.chatbot.tls=true"
-      - "traefik.http.routers.chatbot.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.chatbot.loadbalancer.server.port=8006"
 
 networks:
