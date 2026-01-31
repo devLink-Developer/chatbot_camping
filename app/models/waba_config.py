@@ -15,6 +15,7 @@ class WabaConfig(models.Model):
     business_id = models.CharField(max_length=50, blank=True)
     waba_id = models.CharField(max_length=50, blank=True)
     webhook_url = models.CharField(max_length=255, blank=True)
+    interactive_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

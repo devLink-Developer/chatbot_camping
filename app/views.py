@@ -33,6 +33,10 @@ def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
                     mensaje_texto = ""
                     if message_type == "text":
                         mensaje_texto = message.get("text", {}).get("body", "")
+                    elif message_type == "interactive":
+                        interactive = message.get("interactive", {}) or {}
+                        reply = interactive.get("button_reply") or interactive.get("list_reply") or {}
+                        mensaje_texto = reply.get("id") or reply.get("title") or ""
 
                     phone_raw = message.get("from", "")
                     if phone_raw.startswith("549"):
