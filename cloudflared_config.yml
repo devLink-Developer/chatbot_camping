@@ -1,0 +1,14 @@
+tunnel: 0e0e4e15-58fc-4417-bed7-76f166ce887d
+credentials-file: /etc/cloudflared/0e0e4e15-58fc-4417-bed7-76f166ce887d.json
+protocol: http2
+
+ingress:
+  - hostname: chatbot.devlink.com.ar
+    service: http://127.0.0.1:5678
+    originRequest:
+      noTLSVerify: true
+  - hostname: chatbot-api.devlink.com.ar
+    service: http://127.0.0.1:80
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404
