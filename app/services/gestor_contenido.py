@@ -31,6 +31,9 @@ class GestorContenido:
     @staticmethod
     def obtener_menu_principal() -> Optional[Menu]:
         """Obtiene el menu principal (id=0)"""
+        menu = Menu.objects.filter(is_main=True, activo=True).first()
+        if menu:
+            return menu
         return GestorContenido.obtener_menu("0")
 
     @staticmethod
@@ -122,7 +125,7 @@ class GestorContenido:
 
         if incluir_navegacion:
             pasos = []
-            if menu.id != "0":
+            if not menu.is_main and menu.id != "0":
                 pasos = ["0", "#"]
             contenido = GestorContenido._agregar_navegacion(contenido, pasos)
 

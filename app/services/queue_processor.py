@@ -41,8 +41,8 @@ def _calcular_delay_ms(respuesta_texto: str) -> int:
     return delay_ms
 
 
-def _marcar_leido_y_typing(wa_message_id: str) -> None:
-    if not wa_message_id:
+def _marcar_leido_y_typing(wa_message_id: str, simulate: bool = False) -> None:
+    if simulate or not wa_message_id:
         return
     typing_enabled = (
         str(getattr(settings, "WHATSAPP_ENABLE_TYPING_INDICATOR", "False")).lower() == "true"
@@ -55,7 +55,7 @@ def _marcar_leido_y_typing(wa_message_id: str) -> None:
     )
 
 
-def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
+def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> None:
     datos = mensaje_in.metadata_json or {}
     phone_number = mensaje_in.phone_number
     mensaje_usuario = mensaje_in.contenido or ""
@@ -65,7 +65,7 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     is_textual = message_type in ("text", "interactive")
     wa_message_id = mensaje_in.wa_message_id
 
-    _marcar_leido_y_typing(wa_message_id)
+    _marcar_leido_y_typing(wa_message_id, simulate=simulate)
 
     sesion, sesion_expirada = GestorSesion.obtener_o_crear_sesion(
         phone_number, nombre_usuario
@@ -202,14 +202,23 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     if interactive_enabled and menu_id_for_interactive:
         menu = GestorContenido.obtener_menu(menu_id_for_interactive) or GestorContenido.obtener_menu("0")
         if menu:
-            interactive_payloads = build_menu_interactive_payloads(
-                menu,
-                body_text=interactive_body or (menu.titulo or ""),
-            )
+            if simulate and menu.flow_json:
+                interactive_payloads = [
+                    {
+                        "type": "flow_preview",
+                        "flow_id": menu.flow_id,
+                        "flow_json": menu.flow_json,
+                    }
+                ]
+            else:
+                interactive_payloads = build_menu_interactive_payloads(
+                    menu,
+                    body_text=interactive_body or (menu.titulo or ""),
+                )
             if interactive_payloads:
                 interactive_fallback = respuesta_texto
 
-    delay_ms = _calcular_delay_ms(respuesta_texto)
+    delay_ms = 0 if simulate else _calcular_delay_ms(respuesta_texto)
     outbound_meta = {
         "tipo_contenido": tipo_contenido,
         "accion": accion,
@@ -217,9 +226,16 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
         "estado_nuevo": estado_nuevo,
         "respuesta_a": wa_message_id,
         "respuesta_a_id": str(mensaje_in.id),
+        "respuesta_a_ts_ms": mensaje_in.timestamp_ms,
         "delay_ms": delay_ms,
         "interactive_enabled": interactive_enabled,
+        "simulated": simulate,
     }
+    if simulate and menu_id_for_interactive:
+        menu_ref = GestorContenido.obtener_menu(menu_id_for_interactive) or GestorContenido.obtener_menu("0")
+        if menu_ref and menu_ref.flow_json:
+            outbound_meta["flow_json"] = menu_ref.flow_json
+            outbound_meta["flow_id"] = menu_ref.flow_id
     if interactive_payloads:
         outbound_meta["interactive_payloads"] = interactive_payloads
         outbound_meta["interactive_fallback"] = interactive_fallback
@@ -227,18 +243,20 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje) -> None:
     else:
         outbound_tipo = "text"
 
+    outbound_status = "processed" if simulate else "queued"
+    process_after = _now_ms() if simulate else (_now_ms() + delay_ms)
     GestorMensajes.registrar_salida(
         phone_number=phone_number,
         nombre=nombre_usuario,
         contenido=respuesta_texto,
         tipo=outbound_tipo,
         metadata=outbound_meta,
-        queue_status="queued",
-        process_after_ms=_now_ms() + delay_ms,
+        queue_status=outbound_status,
+        process_after_ms=process_after,
     )
 
 
-def procesar_inbound_pendientes(limit: int = 10) -> int:
+def procesar_inbound_pendientes(limit: int = 10, simulate: bool = False) -> int:
     """Procesa mensajes entrantes pendientes."""
     close_old_connections()
     now_ms = _now_ms()
@@ -265,7 +283,7 @@ def procesar_inbound_pendientes(limit: int = 10) -> int:
     procesados = 0
     for mensaje in mensajes:
         try:
-            _procesar_mensaje_inbound(mensaje)
+            _procesar_mensaje_inbound(mensaje, simulate=simulate)
             Mensaje.objects.filter(id=mensaje.id).update(
                 queue_status="processed",
                 processed_at_ms=_now_ms(),
@@ -286,6 +304,8 @@ def procesar_outbound_pendientes(limit: int = 10) -> int:
     """Envia mensajes salientes en cola."""
     close_old_connections()
     now_ms = _now_ms()
+    max_age_seconds = int(getattr(settings, "OUTBOUND_MAX_AGE_SECONDS", 900))
+    drop_if_newer = str(getattr(settings, "OUTBOUND_DROP_IF_NEWER_INBOUND", "True")).lower() == "true"
     with transaction.atomic():
         base_qs = (
             Mensaje.objects.filter(
@@ -309,6 +329,33 @@ def procesar_outbound_pendientes(limit: int = 10) -> int:
     enviados = 0
     for mensaje in mensajes:
         try:
+            if max_age_seconds > 0:
+                age_ms = now_ms - int(mensaje.timestamp_ms or now_ms)
+                if age_ms > (max_age_seconds * 1000):
+                    Mensaje.objects.filter(id=mensaje.id).update(
+                        queue_status="failed",
+                        error="expired_outbound",
+                        processed_at_ms=_now_ms(),
+                    )
+                    continue
+
+            if drop_if_newer:
+                meta = mensaje.metadata_json or {}
+                respuesta_ts = meta.get("respuesta_a_ts_ms") or meta.get("respuesta_a_ts")
+                if respuesta_ts:
+                    newer_inbound = Mensaje.objects.filter(
+                        phone_number=mensaje.phone_number,
+                        direccion="in",
+                        timestamp_ms__gt=int(respuesta_ts),
+                    ).exists()
+                    if newer_inbound:
+                        Mensaje.objects.filter(id=mensaje.id).update(
+                            queue_status="failed",
+                            error="superseded_by_newer_inbound",
+                            processed_at_ms=_now_ms(),
+                        )
+                        continue
+
             if mensaje.tipo == "interactive":
                 meta = mensaje.metadata_json or {}
                 payloads = meta.get("interactive_payloads")
@@ -393,6 +440,57 @@ def procesar_outbound_pendientes(limit: int = 10) -> int:
 
 def procesar_cola(limit: int = 10) -> dict:
     """Procesa colas inbound y outbound."""
-    procesados_in = procesar_inbound_pendientes(limit=limit)
+    procesados_in = procesar_inbound_pendientes(limit=limit, simulate=False)
     procesados_out = procesar_outbound_pendientes(limit=limit)
     return {"inbound": procesados_in, "outbound": procesados_out}
+
+
+def simular_mensaje(
+    phone_number: str,
+    nombre: str,
+    contenido: str,
+    message_type: str = "text",
+) -> dict:
+    """Simula un mensaje entrante sin enviar nada a WhatsApp."""
+    ahora_ms = _now_ms()
+    mensaje_in = GestorMensajes.registrar_entrada(
+        phone_number=phone_number,
+        nombre=nombre or "",
+        contenido=contenido or "",
+        tipo=message_type or "text",
+        timestamp_ms=ahora_ms,
+        metadata={"alias_waba": nombre or ""},
+        queue_status="processing",
+        process_after_ms=ahora_ms,
+    )
+    _procesar_mensaje_inbound(mensaje_in, simulate=True)
+    Mensaje.objects.filter(id=mensaje_in.id).update(
+        queue_status="processed",
+        processed_at_ms=_now_ms(),
+        error=None,
+    )
+    respuesta = (
+        Mensaje.objects.filter(
+            direccion="out",
+            metadata_json__respuesta_a_id=str(mensaje_in.id),
+        )
+        .order_by("-id")
+        .first()
+    )
+    historial = list(
+        Mensaje.objects.filter(phone_number=phone_number)
+        .order_by("timestamp_ms", "id")
+        .values("direccion", "tipo", "contenido", "timestamp_ms")[:100]
+    )
+    if not respuesta:
+        return {"ok": False, "error": "no_response", "historial": historial}
+    meta = respuesta.metadata_json or {}
+    return {
+        "ok": True,
+        "respuesta": respuesta.contenido or "",
+        "respuesta_tipo": respuesta.tipo,
+        "interactive_payloads": meta.get("interactive_payloads") or meta.get("interactive_payload") or [],
+        "flow_json": meta.get("flow_json"),
+        "flow_id": meta.get("flow_id"),
+        "historial": historial,
+    }

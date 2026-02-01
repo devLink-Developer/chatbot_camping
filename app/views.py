@@ -4,13 +4,14 @@ import time
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from app.models.sesion import Sesion
 from app.models.mensaje import Mensaje
 from app.services import GestorMensajes, GestorSesion
-from app.services.queue_processor import procesar_cola
+from app.services.queue_processor import procesar_cola, simular_mensaje
 from app.services.waba_config import get_active_waba_config
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,54 @@ def webhook(request):
 @require_http_methods(["GET", "POST"])
 def webhook_mensajes(request):
     return webhook(request)
+
+
+@require_http_methods(["GET"])
+def simulador(request):
+    return render(request, "simulador.html")
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def simulador_api(request):
+    if request.method == "GET":
+        phone_number = request.GET.get("phone_number") or ""
+        if not phone_number:
+            return JsonResponse({"ok": False, "error": "phone_required"}, status=400)
+        phone_number = phone_number.strip()
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+        historial = list(
+            Mensaje.objects.filter(phone_number=phone_number)
+            .order_by("timestamp_ms", "id")
+            .values("direccion", "tipo", "contenido", "timestamp_ms")[:100]
+        )
+        return JsonResponse({"ok": True, "historial": historial})
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    phone_number = (data.get("phone_number") or "").strip()
+    nombre = (data.get("nombre") or "").strip()
+    contenido = (data.get("mensaje") or "").strip()
+    message_type = (data.get("message_type") or "text").strip()
+
+    if not phone_number:
+        return JsonResponse({"ok": False, "error": "phone_required"}, status=400)
+    if not contenido:
+        return JsonResponse({"ok": False, "error": "message_required"}, status=400)
+    if not phone_number.startswith("+"):
+        phone_number = f"+{phone_number}"
+
+    resultado = simular_mensaje(
+        phone_number=phone_number,
+        nombre=nombre,
+        contenido=contenido,
+        message_type=message_type,
+    )
+    return JsonResponse(resultado)
 
 
 @require_http_methods(["GET"])

@@ -34,7 +34,7 @@ def _build_options(menu: Menu) -> List[Dict[str, str]]:
         if (opt.key or "").strip()
     ]
 
-    if menu.id != "0":
+    if not menu.is_main and menu.id != "0":
         keys = {opt["key"] for opt in items}
         if "0" not in keys:
             items.append({"key": "0", "label": "Volver al menu principal"})
@@ -95,27 +95,8 @@ def build_menu_interactive_payloads(menu: Menu, body_text: Optional[str] = None)
     if len(opciones) <= MAX_LIST_ROWS:
         return [_build_list_payload(opciones, base_body)]
 
-    if menu.id == "0":
-        grupo_1_keys = {str(i) for i in range(1, 7)}
-        grupo_2_keys = {str(i) for i in range(7, 13)}
-        grupo_1 = [opt for opt in opciones if opt["key"] in grupo_1_keys]
-        grupo_2 = [opt for opt in opciones if opt["key"] in grupo_2_keys]
-        if grupo_1 and grupo_2:
-            body_1 = _trim(f"{base_body}\nOpciones 1-6", MAX_BODY_TEXT)
-            body_2 = _trim(f"{base_body}\nOpciones 7-12", MAX_BODY_TEXT)
-            return [
-                _build_list_payload(grupo_1, body_1, section_title="Opciones 1-6"),
-                _build_list_payload(grupo_2, body_2, section_title="Opciones 7-12"),
-            ]
-
-    payloads = []
-    total_chunks = (len(opciones) + MAX_LIST_ROWS - 1) // MAX_LIST_ROWS
-    for idx in range(total_chunks):
-        chunk = opciones[idx * MAX_LIST_ROWS : (idx + 1) * MAX_LIST_ROWS]
-        suffix = f" ({idx + 1}/{total_chunks})" if total_chunks > 1 else ""
-        body = _trim(f"{base_body}{suffix}", MAX_BODY_TEXT)
-        payloads.append(_build_list_payload(chunk, body))
-    return payloads
+    # Si supera el maximo de filas, no enviamos interactivo: el bot responde solo texto o flow.
+    return None
 
 
 def build_menu_interactive(menu: Menu, body_text: Optional[str] = None) -> Optional[Dict]:

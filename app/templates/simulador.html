@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es-ar">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simulador Chatbot</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1216;
+        --panel: #161b22;
+        --text: #e6edf3;
+        --muted: #9aa4b2;
+        --accent: #4ea1ff;
+        --border: #2b3240;
+        --in: #1f6feb;
+        --out: #2ea043;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1100px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 16px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        background: #0c1117;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .row {
+        margin-bottom: 12px;
+      }
+      button {
+        background: var(--accent);
+        color: #0b1117;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .chat {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 560px;
+        overflow: auto;
+      }
+      .msg {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .msg.in {
+        align-self: flex-start;
+        background: rgba(31, 111, 235, 0.15);
+        border-color: rgba(31, 111, 235, 0.4);
+      }
+      .msg.out {
+        align-self: flex-end;
+        background: rgba(46, 160, 67, 0.15);
+        border-color: rgba(46, 160, 67, 0.4);
+      }
+      .meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .payload {
+        margin-top: 8px;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 12px;
+        background: #0b0f14;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Simulador de Chatbot</h1>
+      <div class="grid">
+        <div class="card">
+          <div id="chat" class="chat"></div>
+        </div>
+        <div class="card">
+          <div class="row">
+            <label for="phone">Telefono</label>
+            <input id="phone" type="text" placeholder="+549..." value="+549" />
+          </div>
+          <div class="row">
+            <label for="name">Nombre (opcional)</label>
+            <input id="name" type="text" placeholder="Nombre" />
+          </div>
+          <div class="row">
+            <label for="type">Tipo de mensaje</label>
+            <select id="type">
+              <option value="text">Texto</option>
+              <option value="interactive">Interactive (id)</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="message">Mensaje</label>
+            <textarea id="message" placeholder="Escribi aca..."></textarea>
+          </div>
+          <button id="send">Enviar</button>
+          <p class="small" id="status"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const chat = document.getElementById("chat");
+      const statusEl = document.getElementById("status");
+      const sendBtn = document.getElementById("send");
+
+      function renderHistory(historial) {
+        chat.innerHTML = "";
+        historial.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = `msg ${item.direccion}`;
+          div.textContent = item.contenido || "";
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${item.tipo} ${new Date(item.timestamp_ms).toLocaleTimeString()}`;
+          div.appendChild(meta);
+          chat.appendChild(div);
+        });
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      async function fetchHistory() {
+        const phone = document.getElementById("phone").value.trim();
+        if (!phone) return;
+        const res = await fetch(`/api/simulador?phone_number=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (data.ok && data.historial) {
+          renderHistory(data.historial);
+        }
+      }
+
+      async function sendMessage() {
+        const phone = document.getElementById("phone").value.trim();
+        const name = document.getElementById("name").value.trim();
+        const message = document.getElementById("message").value.trim();
+        const type = document.getElementById("type").value;
+
+        if (!phone || !message) {
+          statusEl.textContent = "Telefono y mensaje son obligatorios.";
+          return;
+        }
+
+        statusEl.textContent = "Enviando...";
+        const res = await fetch("/api/simulador", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone_number: phone,
+            nombre: name,
+            mensaje: message,
+            message_type: type,
+          }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          statusEl.textContent = data.error || "Error";
+          return;
+        }
+        statusEl.textContent = "OK";
+        if (data.historial) {
+          renderHistory(data.historial);
+        }
+        if (data.interactive_payloads && data.interactive_payloads.length) {
+          const div = document.createElement("div");
+          div.className = "payload";
+          div.textContent = JSON.stringify(data.interactive_payloads, null, 2);
+          chat.appendChild(div);
+          chat.scrollTop = chat.scrollHeight;
+        }
+        if (data.flow_json) {
+          const div = document.createElement("div");
+          div.className = "payload";
+          div.textContent = "FLOW JSON\\n" + JSON.stringify(data.flow_json, null, 2);
+          chat.appendChild(div);
+          chat.scrollTop = chat.scrollHeight;
+        }
+        document.getElementById("message").value = "";
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      document.getElementById("message").addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+          sendMessage();
+        }
+      });
+
+      fetchHistory();
+    </script>
+  </body>
+</html>
