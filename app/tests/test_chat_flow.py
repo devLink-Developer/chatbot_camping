@@ -176,6 +176,32 @@ class WebhookFlowTests(TestCase):
             ]
         }
 
+    def _payload_interactive(self, reply_id: str = "1", reply_title: str = "Servicios"):
+        message_id = f"wamid.test.{time.time_ns()}"
+        message = {
+            "id": message_id,
+            "from": "5491112345678",
+            "timestamp": str(int(time.time())),
+            "type": "interactive",
+            "interactive": {
+                "list_reply": {"id": reply_id, "title": reply_title},
+            },
+        }
+        return {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [message],
+                                "contacts": [{"profile": {"name": "Tester"}}],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
     def test_webhook_verificacion_ok(self):
         resp = self.client.get(
             "/webhook/mensajes?hub.mode=subscribe&hub.challenge=123&hub.verify_token=test-token"
@@ -313,6 +339,29 @@ class WebhookFlowTests(TestCase):
         assert "Respuesta 1" in enviado_texto
         assert enviado_texto.count("Volver al menu principal") == 1
         assert enviado_texto.count("Volver atras") == 1
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_interactive_reply_id_short_title(self, mocked_send, mocked_read):
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload_interactive(reply_id="1", reply_title="Servicios")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        enviado_texto = mocked_send.call_args[0][1]
+        assert "Respuesta 1" in enviado_texto
 
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(

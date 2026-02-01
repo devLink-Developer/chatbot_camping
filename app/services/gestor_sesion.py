@@ -32,14 +32,20 @@ class GestorSesion:
         inactividad_ms = tiempo_actual - sesion.ultimo_acceso_ms
         expirada = inactividad_ms > settings.SESSION_TIMEOUT_SECONDS * 1000
 
-        sesion.activa = True
         sesion.ultimo_acceso_ms = tiempo_actual
         sesion.primer_acceso = False
 
         if expirada:
+            sesion.activa = False
             sesion.estado_actual = "0"
             sesion.historial_navegacion = ["0"]
             sesion.intentos_fallidos = 0
+            extra = sesion.datos_extra or {}
+            extra["last_closed_ms"] = tiempo_actual
+            extra["last_close_reason"] = "timeout"
+            sesion.datos_extra = extra
+        else:
+            sesion.activa = True
 
         sesion.save()
         return sesion, expirada

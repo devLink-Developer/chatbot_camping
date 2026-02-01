@@ -2,9 +2,10 @@ from django.contrib import admin
 from django.conf import settings
 from django import forms
 from django.core.exceptions import ValidationError
-from django.urls import reverse
+from django.urls import reverse, path
 from django.utils.html import format_html, format_html_join
 from django.utils.http import urlencode
+from django.http import HttpResponseRedirect
 from importlib import import_module
 from croniter import croniter
 
@@ -21,6 +22,7 @@ from app.models.menu_option import MenuOption
 from app.models.respuesta import Respuesta
 from app.models.sesion import Sesion
 from app.models.waba_config import WabaConfig
+from app.services.flow_validator import validate_flow_for_menu
 
 
 @admin.register(Cliente)
@@ -140,10 +142,99 @@ class SesionAdmin(admin.ModelAdmin):
 
 @admin.register(Menu)
 class MenuAdmin(admin.ModelAdmin):
-    list_display = ("id", "titulo", "parent", "orden", "activo", "updated_at")
-    list_filter = ("activo",)
-    search_fields = ("id", "titulo")
+    change_form_template = "admin/app/menu/change_form.html"
+    list_display = (
+        "id",
+        "titulo",
+        "is_main",
+        "flow_id",
+        "flow_status",
+        "flow_valid",
+        "parent",
+        "orden",
+        "activo",
+        "updated_at",
+    )
+    list_filter = ("activo", "is_main", "flow_valid")
+    search_fields = ("id", "titulo", "flow_id", "flow_name")
     ordering = ("orden", "id")
+    readonly_fields = ("flow_last_checked_at", "flow_validation")
+    actions = ["marcar_menu_principal", "validar_flow"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.flow_id:
+            try:
+                validate_flow_for_menu(obj)
+            except Exception as exc:
+                self.message_user(
+                    request,
+                    f"No se pudo validar el flow automaticamente: {exc}",
+                    level="warning",
+                )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<path:object_id>/sync-flow/",
+                self.admin_site.admin_view(self.sync_flow),
+                name="app_menu_sync_flow",
+            )
+        ]
+        return custom + urls
+
+    def sync_flow(self, request, object_id):
+        menu = self.get_object(request, object_id)
+        if not menu:
+            self.message_user(request, "Menu no encontrado.", level="warning")
+            return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/"))
+
+        if not menu.flow_id:
+            self.message_user(
+                request,
+                "El menu seleccionado no tiene flow_id.",
+                level="warning",
+            )
+            return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/"))
+
+        resultado = validate_flow_for_menu(menu)
+        if resultado.get("ok"):
+            self.message_user(request, "Flow sincronizado correctamente.")
+        else:
+            self.message_user(
+                request,
+                "Flow sincronizado con advertencias. Revisar flow_validation.",
+                level="warning",
+            )
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/"))
+
+    @admin.action(description="Marcar como menu principal")
+    def marcar_menu_principal(self, request, queryset):
+        if queryset.count() != 1:
+            self.message_user(request, "Selecciona un solo menu.", level="warning")
+            return
+        Menu.objects.update(is_main=False)
+        menu = queryset.first()
+        menu.is_main = True
+        menu.save(update_fields=["is_main"])
+        self.message_user(request, f"Menu principal: {menu.titulo} ({menu.id})")
+
+    @admin.action(description="Validar Flow del menu")
+    def validar_flow(self, request, queryset):
+        total = 0
+        ok = 0
+        for menu in queryset:
+            total += 1
+            resultado = validate_flow_for_menu(menu)
+            if resultado.get("ok"):
+                ok += 1
+        if total == 1:
+            menu = queryset.first()
+            if menu and not menu.flow_id:
+                self.message_user(request, "El menu seleccionado no tiene flow_id.", level="warning")
+                return
+        self.message_user(request, f"Validacion completada: {ok}/{total} OK.")
 
 
 @admin.register(MenuOption)
