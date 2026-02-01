@@ -12,7 +12,10 @@ from app.services.waba_config import get_whatsapp_setting
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FIELDS = "id,name,status,validation_errors,updated_time,flow_json"
+DEFAULT_FIELDS = (
+    "id,name,status,validation_errors,preview,json_version,data_api_version,"
+    "data_channel_uri,health_status,whatsapp_business_account,application"
+)
 
 
 def _graph_base() -> str:
@@ -77,7 +80,7 @@ def _fetch_flow_details(flow_id: str) -> Dict[str, Any]:
     if result.get("ok"):
         return result
 
-    fallback_fields = "id,name,status,validation_errors,updated_time"
+    fallback_fields = "id,name,status,validation_errors"
     fallback = _request_json(url, params={"fields": fallback_fields})
     return fallback
 
@@ -120,7 +123,7 @@ def validate_flow_for_menu(menu: Menu) -> Dict[str, Any]:
         return validation
 
     data = result.get("data") or {}
-    flow_json = _parse_flow_json(data.get("flow_json"))
+    flow_json = _parse_flow_json(data.get("flow_json")) or _parse_flow_json(menu.flow_json)
     option_ids_flow = _collect_option_ids(flow_json) if flow_json else []
     option_ids_menu = sorted(
         {str(opt.key) for opt in MenuOption.objects.filter(menu=menu, activo=True)}
