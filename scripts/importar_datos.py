@@ -217,7 +217,12 @@ def crear_config_inicial():
     print("\n⚙️ Creando configuracion inicial...")
 
     mensajes = {
-        "bienvenida": "👋 ¡Hola! Bienvenido al Centro Recreativo y Camping ACA de Luján.",
+        "bienvenida": (
+            "👋 ¡Hola! Bienvenido al Centro Recreativo y Camping ACA de Luján.\n"
+            "Soy *Boti* 🤖💬, tu asistente virtual. Estoy para ayudarte con toda la info del predio.\n"
+            "\n"
+            "📌 A continuación te dejo el menú para que elijas lo que necesitas:"
+        ),
         "bienvenida_retorno": "¡Hola de nuevo! Qué gusto verte por acá. ¿En qué puedo ayudarte hoy?",
         "error_opcion": "❌ Opción no válida. Por favor, selecciona un número del 1 al 12 o una letra de la A a la Z.",
         "error_sesion": "⚠️ Tu sesión ha expirado. Por favor, inicia nuevamente.",
