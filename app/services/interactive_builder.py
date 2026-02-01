@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional, List, Dict
+import time
+from typing import Optional, List, Dict, Any
 
 from app.models.menu import Menu
 from app.models.menu_option import MenuOption
@@ -13,6 +14,7 @@ MAX_LIST_ROW_DESC = 72
 MAX_LIST_BUTTON_TEXT = 20
 MAX_BODY_TEXT = 1024
 MAX_LIST_ROWS = 10
+MAX_FLOW_CTA = 20
 
 
 def _trim(text: str, max_len: int) -> str:
@@ -42,6 +44,51 @@ def _build_options(menu: Menu) -> List[Dict[str, str]]:
             items.append({"key": "#", "label": "Volver atras"})
 
     return items
+
+
+def _find_first_screen_id(flow_json: Any) -> Optional[str]:
+    if not isinstance(flow_json, dict):
+        return None
+    screens = flow_json.get("screens") or []
+    if isinstance(screens, list):
+        for screen in screens:
+            if isinstance(screen, dict):
+                screen_id = screen.get("id")
+                if screen_id:
+                    return str(screen_id)
+    return None
+
+
+def build_flow_interactive_payload(
+    menu: Menu,
+    body_text: Optional[str] = None,
+    cta_text: str = "Ver opciones",
+    message_version: str = "3",
+) -> Optional[Dict]:
+    if not menu or not menu.flow_id:
+        return None
+
+    screen_id = _find_first_screen_id(menu.flow_json)
+    body = _trim(body_text or menu.titulo or "Selecciona una opcion", MAX_BODY_TEXT)
+    cta = _trim(cta_text, MAX_FLOW_CTA) or "Ver opciones"
+    flow_token = f"menu_{menu.id}_{int(time.time())}"
+
+    parameters: Dict[str, Any] = {
+        "flow_message_version": str(message_version),
+        "flow_id": str(menu.flow_id),
+        "flow_cta": cta,
+        "flow_token": flow_token,
+    }
+
+    if screen_id:
+        parameters["flow_action"] = "navigate"
+        parameters["flow_action_payload"] = {"screen": screen_id}
+
+    return {
+        "type": "flow",
+        "body": {"text": body},
+        "action": {"name": "flow", "parameters": parameters},
+    }
 
 
 def _build_list_payload(opciones: List[Dict[str, str]], body: str, section_title: str = "Opciones") -> Dict:

@@ -16,7 +16,10 @@ from app.services import (
     ValidadorEntrada,
 )
 from app.services.cliente_whatsapp import ClienteWhatsApp
-from app.services.interactive_builder import build_menu_interactive_payloads
+from app.services.interactive_builder import (
+    build_menu_interactive_payloads,
+    build_flow_interactive_payload,
+)
 from app.services.waba_config import get_whatsapp_bool
 
 logger = logging.getLogger(__name__)
@@ -197,20 +200,27 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
         "interactive_enabled",
         getattr(settings, "WHATSAPP_INTERACTIVE_ENABLED", False),
     )
+    flow_enabled = get_whatsapp_bool(
+        "flow_enabled",
+        getattr(settings, "WHATSAPP_FLOW_ENABLED", False),
+    )
+    flow_cta = getattr(settings, "WHATSAPP_FLOW_CTA_TEXT", "Ver opciones")
+    flow_version = getattr(settings, "WHATSAPP_FLOW_MESSAGE_VERSION", "3")
     interactive_payloads = None
     interactive_fallback = None
     if interactive_enabled and menu_id_for_interactive:
         menu = GestorContenido.obtener_menu(menu_id_for_interactive) or GestorContenido.obtener_menu("0")
         if menu:
-            if simulate and menu.flow_json:
-                interactive_payloads = [
-                    {
-                        "type": "flow_preview",
-                        "flow_id": menu.flow_id,
-                        "flow_json": menu.flow_json,
-                    }
-                ]
-            else:
+            if flow_enabled and menu.flow_id:
+                flow_payload = build_flow_interactive_payload(
+                    menu,
+                    body_text=interactive_body or (menu.titulo or ""),
+                    cta_text=flow_cta,
+                    message_version=flow_version,
+                )
+                if flow_payload:
+                    interactive_payloads = [flow_payload]
+            if not interactive_payloads:
                 interactive_payloads = build_menu_interactive_payloads(
                     menu,
                     body_text=interactive_body or (menu.titulo or ""),
@@ -229,13 +239,15 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
         "respuesta_a_ts_ms": mensaje_in.timestamp_ms,
         "delay_ms": delay_ms,
         "interactive_enabled": interactive_enabled,
+        "flow_enabled": flow_enabled,
         "simulated": simulate,
     }
-    if simulate and menu_id_for_interactive:
+    if menu_id_for_interactive:
         menu_ref = GestorContenido.obtener_menu(menu_id_for_interactive) or GestorContenido.obtener_menu("0")
-        if menu_ref and menu_ref.flow_json:
-            outbound_meta["flow_json"] = menu_ref.flow_json
+        if menu_ref and menu_ref.flow_id:
             outbound_meta["flow_id"] = menu_ref.flow_id
+        if menu_ref and menu_ref.flow_json and simulate:
+            outbound_meta["flow_json"] = menu_ref.flow_json
     if interactive_payloads:
         outbound_meta["interactive_payloads"] = interactive_payloads
         outbound_meta["interactive_fallback"] = interactive_fallback
