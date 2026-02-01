@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from typing import Any, Optional
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -15,6 +16,41 @@ from app.services.queue_processor import procesar_cola, simular_mensaje
 from app.services.waba_config import get_active_waba_config
 
 logger = logging.getLogger(__name__)
+
+
+def _buscar_valor_por_claves(data: Any, claves: list[str]) -> Optional[str]:
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        for clave in claves:
+            if clave in data:
+                valor = data.get(clave)
+                if valor is not None:
+                    return str(valor)
+        for value in data.values():
+            encontrado = _buscar_valor_por_claves(value, claves)
+            if encontrado:
+                return encontrado
+    elif isinstance(data, list):
+        for item in data:
+            encontrado = _buscar_valor_por_claves(item, claves)
+            if encontrado:
+                return encontrado
+    return None
+
+
+def _extraer_opcion_flow(response_json: Any) -> Optional[str]:
+    if response_json is None:
+        return None
+    claves_prioridad = [
+        "menu_option",
+        "menu_option_1",
+        "menu_option_2",
+        "menu_option_3",
+        "opcion",
+        "option",
+    ]
+    return _buscar_valor_por_claves(response_json, claves_prioridad)
 
 
 def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
@@ -36,8 +72,24 @@ def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
                         mensaje_texto = message.get("text", {}).get("body", "")
                     elif message_type == "interactive":
                         interactive = message.get("interactive", {}) or {}
-                        reply = interactive.get("button_reply") or interactive.get("list_reply") or {}
-                        mensaje_texto = reply.get("id") or reply.get("title") or ""
+                        if interactive.get("type") == "nfm_reply":
+                            nfm_reply = interactive.get("nfm_reply") or {}
+                            response_raw = nfm_reply.get("response_json")
+                            try:
+                                response_json = json.loads(response_raw) if response_raw else None
+                            except Exception:
+                                response_json = None
+                            mensaje_texto = _extraer_opcion_flow(response_json) or ""
+                            if not mensaje_texto:
+                                mensaje_texto = (
+                                    nfm_reply.get("id")
+                                    or nfm_reply.get("title")
+                                    or nfm_reply.get("name")
+                                    or ""
+                                )
+                        else:
+                            reply = interactive.get("button_reply") or interactive.get("list_reply") or {}
+                            mensaje_texto = reply.get("id") or reply.get("title") or ""
 
                     phone_raw = message.get("from", "")
                     if phone_raw.startswith("549"):

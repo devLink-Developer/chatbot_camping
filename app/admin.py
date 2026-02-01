@@ -282,14 +282,27 @@ class WabaConfigAdmin(admin.ModelAdmin):
             label="Usar interactivos",
             help_text="Si esta activo, envia menus con mensajes interactivos.",
         )
+        flow_enabled = forms.BooleanField(
+            required=False,
+            label="Usar flows",
+            help_text="Si esta activo, usa flows cuando el menu tenga flow_id.",
+        )
 
         class Meta:
             model = WabaConfig
             fields = "__all__"
 
     form = WabaConfigForm
-    list_display = ("name", "phone_id", "active", "interactive_enabled", "api_version", "updated_at")
-    list_filter = ("active", "interactive_enabled", "api_version")
+    list_display = (
+        "name",
+        "phone_id",
+        "active",
+        "interactive_enabled",
+        "flow_enabled",
+        "api_version",
+        "updated_at",
+    )
+    list_filter = ("active", "interactive_enabled", "flow_enabled", "api_version")
     search_fields = ("name", "phone_id", "business_id", "waba_id")
     ordering = ("-active", "name")
     actions = ["activar_config"]
