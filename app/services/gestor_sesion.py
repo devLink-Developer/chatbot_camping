@@ -56,6 +56,7 @@ class GestorSesion:
         nuevo_estado: str,
         historial: List[str],
         mensaje: str = "",
+        tipo_contenido: str | None = None,
     ) -> Sesion:
         """Actualiza el estado actual y el historial de navegacion"""
         sesion = Sesion.objects.filter(phone_number=phone_number).first()
@@ -65,6 +66,10 @@ class GestorSesion:
             sesion.historial_navegacion = historial
             sesion.ultimo_mensaje = mensaje
             sesion.timestamp_ultimo_mensaje = int(time.time() * 1000)
+            if tipo_contenido:
+                extra = sesion.datos_extra or {}
+                extra["last_content_type"] = tipo_contenido
+                sesion.datos_extra = extra
             sesion.save()
 
         return sesion

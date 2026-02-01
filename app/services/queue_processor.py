@@ -103,9 +103,13 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
         target = "0"
         es_valido = False
     else:
+        last_content_type = (sesion.datos_extra or {}).get("last_content_type")
         estado_nuevo, historial_nuevo, tipo_contenido, target, es_valido = (
             NavigadorBot.procesar_entrada(
-                mensaje_usuario, sesion.historial_navegacion, sesion.estado_actual
+                mensaje_usuario,
+                sesion.historial_navegacion,
+                sesion.estado_actual,
+                last_content_type,
             )
         )
 
@@ -213,7 +217,11 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
             menu_id_for_interactive = "0"
 
     GestorSesion.actualizar_estado(
-        phone_number, estado_nuevo, historial_nuevo, mensaje_usuario
+        phone_number,
+        estado_nuevo,
+        historial_nuevo,
+        mensaje_usuario,
+        tipo_contenido=tipo_contenido,
     )
 
     interactive_enabled = get_whatsapp_bool(
