@@ -218,6 +218,7 @@ def crear_config_inicial():
 
     mensajes = {
         "bienvenida": "👋 ¡Hola! Bienvenido al Centro Recreativo y Camping ACA de Luján.",
+        "bienvenida_retorno": "¡Hola de nuevo! Qué gusto verte por acá. ¿En qué puedo ayudarte hoy?",
         "error_opcion": "❌ Opción no válida. Por favor, selecciona un número del 1 al 12 o una letra de la A a la Z.",
         "error_sesion": "⚠️ Tu sesión ha expirado. Por favor, inicia nuevamente.",
         "ayuda": "ℹ️ Usa números (1-12) para menús principales y letras (A-Z) para opciones específicas.",
@@ -321,6 +322,7 @@ def main():
     respuestas_archivo = BASE_DIR / "colecciones_v1" / "chatbot.respuestas.json"
 
     crear_tablas()
+    crear_config_inicial()
 
     if Menu.objects.exists() or Respuesta.objects.exists() or MenuOption.objects.exists():
         print("ℹ️ Ya existen datos en la base. Importación omitida.")
@@ -342,7 +344,6 @@ def main():
     if menus_info and respuestas:
         crear_opciones_menu(menus_info, respuestas)
 
-    crear_config_inicial()
     crear_datos_ejemplo()
 
     print("\n" + "=" * 60)
