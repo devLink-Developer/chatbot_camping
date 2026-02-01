@@ -7,6 +7,7 @@ from django.db import transaction, close_old_connections, models
 from django.db.utils import NotSupportedError
 
 from app.models.mensaje import Mensaje
+from app.models.cliente import Cliente
 from app.services import (
     GestorCliente,
     GestorContenido,
@@ -70,6 +71,10 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
 
     _marcar_leido_y_typing(wa_message_id, simulate=simulate)
 
+    now_ms = _now_ms()
+    cliente_prev = Cliente.objects.filter(phone_number=phone_number).first()
+    prev_contact_ms = cliente_prev.ultimo_contacto_ms if cliente_prev else None
+
     sesion, sesion_expirada = GestorSesion.obtener_o_crear_sesion(
         phone_number, nombre_usuario
     )
@@ -122,6 +127,7 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
         {
             "cliente_nuevo": cliente_nuevo,
             "sesion_expirada": sesion_expirada,
+            "prev_contact_ms": prev_contact_ms,
             "message_type": message_type,
             "tipo_entrada": tipo_entrada,
             "accion": accion,
@@ -143,7 +149,21 @@ def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> No
         interactive_body = bienvenida or "Bienvenido"
         menu_id_for_interactive = "0"
     elif sesion_expirada:
-        error_sesion = GestorContenido.obtener_config_mensaje("error_sesion") or ""
+        retorno_threshold_ms = 24 * 60 * 60 * 1000
+        saludo_retorno = (
+            GestorContenido.obtener_config_mensaje("bienvenida_retorno")
+            or "¡Hola de nuevo! Qué gusto verte por acá. ¿En qué puedo ayudarte hoy?"
+        )
+        error_default = (
+            GestorContenido.obtener_config_mensaje("error_sesion")
+            or "Tu sesión ha expirado. Por favor, inicia nuevamente."
+        )
+        use_return_greeting = (
+            (not cliente_nuevo)
+            and prev_contact_ms
+            and (now_ms - int(prev_contact_ms)) >= retorno_threshold_ms
+        )
+        error_sesion = saludo_retorno if use_return_greeting else error_default
         contenido_menu = NavigadorBot.obtener_contenido("0", "menu")
         menu_texto = contenido_menu["contenido"] if contenido_menu else ""
         respuesta_texto = f"{error_sesion}\n\n{menu_texto}".strip()
