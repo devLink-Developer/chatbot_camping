@@ -12,6 +12,7 @@ class NavigadorBot:
         entrada: str,
         historial_actual: List[str],
         estado_actual: str,
+        ultimo_tipo: Optional[str] = None,
     ) -> Tuple[str, List[str], str, str, bool]:
         """
         Procesa la entrada del usuario y retorna:
@@ -38,9 +39,12 @@ class NavigadorBot:
             tipo_contenido = "menu"
             target = "0"
         elif accion == "volver_anterior":
-            if len(nuevo_historial) > 1:
-                nuevo_historial.pop()
-            nuevo_estado = nuevo_historial[-1] if nuevo_historial else "0"
+            if ultimo_tipo == "respuesta":
+                nuevo_estado = estado_actual
+            else:
+                if len(nuevo_historial) > 1:
+                    nuevo_historial.pop()
+                nuevo_estado = nuevo_historial[-1] if nuevo_historial else "0"
             tipo_contenido = "menu"
             target = nuevo_estado
         elif accion == "seleccionar_opcion":

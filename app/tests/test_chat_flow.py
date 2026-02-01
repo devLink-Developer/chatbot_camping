@@ -431,6 +431,44 @@ class WebhookFlowTests(TestCase):
         "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
         return_value={"ok": True, "message_id": "wamid.out"},
     )
+    def test_volver_atras_desde_respuesta_regresa_submenu(self, mocked_send, mocked_read):
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("2")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("A")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("#")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        enviado_texto = mocked_send.call_args[0][1]
+        assert "Submenu" in enviado_texto
+        assert "Opcion A" in enviado_texto
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
     def test_no_texto_devuelve_menu(self, mocked_send, mocked_read):
         self.client.post(
             "/webhook/mensajes",
