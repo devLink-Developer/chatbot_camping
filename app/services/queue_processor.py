@@ -21,7 +21,7 @@ from app.services.interactive_builder import (
     build_menu_interactive_payloads,
     build_flow_interactive_payload,
 )
-from app.services.waba_config import get_whatsapp_bool
+from app.services.waba_config import get_whatsapp_bool, get_whatsapp_setting
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,26 @@ def _marcar_leido_y_typing(wa_message_id: str, simulate: bool = False) -> None:
 
 def _procesar_mensaje_inbound(mensaje_in: Mensaje, simulate: bool = False) -> None:
     datos = mensaje_in.metadata_json or {}
+    inbound_phone_id = datos.get("phone_number_id")
+    expected_phone_id = get_whatsapp_setting(
+        "phone_id", getattr(settings, "WHATSAPP_PHONE_ID", "")
+    )
+    if expected_phone_id and inbound_phone_id and str(inbound_phone_id) != str(expected_phone_id):
+        logger.warning(
+            "Inbound ignorado: phone_number_id %s != activo %s",
+            inbound_phone_id,
+            expected_phone_id,
+        )
+        datos.update(
+            {
+                "ignored_reason": "phone_id_mismatch",
+                "expected_phone_id": expected_phone_id,
+                "actual_phone_id": inbound_phone_id,
+            }
+        )
+        mensaje_in.metadata_json = datos
+        mensaje_in.save(update_fields=["metadata_json"])
+        return
     phone_number = mensaje_in.phone_number
     mensaje_usuario = mensaje_in.contenido or ""
     nombre_usuario = mensaje_in.nombre or ""

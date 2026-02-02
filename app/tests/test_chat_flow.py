@@ -488,6 +488,24 @@ class WebhookFlowTests(TestCase):
         assert "puedo leer mensajes de texto" in enviado_texto.lower()
         assert "Menu" in enviado_texto
 
+    @override_settings(WHATSAPP_PHONE_ID="123")
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_phone_id_mismatch_ignored(self, mocked_send, mocked_read):
+        payload = self._payload("hola")
+        payload["entry"][0]["changes"][0]["value"]["metadata"] = {"phone_number_id": "999"}
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+        assert mocked_send.call_count == 0
+
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(
         "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
