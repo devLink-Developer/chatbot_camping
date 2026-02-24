@@ -18,7 +18,7 @@ from app.services.waba_config import get_active_waba_config
 logger = logging.getLogger(__name__)
 
 
-def _buscar_valor_por_claves(data: Any, claves: list[str]) -> Optional[str]:
+def _buscar_valor_crudo_por_claves(data: Any, claves: list[str]) -> Any:
     if data is None:
         return None
     if isinstance(data, dict):
@@ -26,17 +26,24 @@ def _buscar_valor_por_claves(data: Any, claves: list[str]) -> Optional[str]:
             if clave in data:
                 valor = data.get(clave)
                 if valor is not None:
-                    return str(valor)
+                    return valor
         for value in data.values():
-            encontrado = _buscar_valor_por_claves(value, claves)
-            if encontrado:
+            encontrado = _buscar_valor_crudo_por_claves(value, claves)
+            if encontrado is not None:
                 return encontrado
     elif isinstance(data, list):
         for item in data:
-            encontrado = _buscar_valor_por_claves(item, claves)
-            if encontrado:
+            encontrado = _buscar_valor_crudo_por_claves(item, claves)
+            if encontrado is not None:
                 return encontrado
     return None
+
+
+def _buscar_valor_por_claves(data: Any, claves: list[str]) -> Optional[str]:
+    valor = _buscar_valor_crudo_por_claves(data, claves)
+    if valor is None:
+        return None
+    return str(valor)
 
 
 def _extraer_opcion_flow(response_json: Any) -> Optional[str]:
@@ -51,6 +58,32 @@ def _extraer_opcion_flow(response_json: Any) -> Optional[str]:
         "option",
     ]
     return _buscar_valor_por_claves(response_json, claves_prioridad)
+
+
+def _extraer_datos_cliente_flow(response_json: Any) -> dict:
+    if response_json is None:
+        return {}
+
+    nombre = _buscar_valor_por_claves(
+        response_json, ["nombre_completo", "nombre", "full_name"]
+    )
+    fecha_nacimiento = _buscar_valor_por_claves(
+        response_json,
+        ["fecha_nacimiento", "fechaNacimiento", "birth_date", "dob"],
+    )
+    tos_optin = _buscar_valor_crudo_por_claves(
+        response_json,
+        ["tos_optin", "terms_optin", "terminos_optin", "marketing_opt_in", "optin"],
+    )
+
+    datos = {}
+    if nombre:
+        datos["nombre_completo"] = nombre
+    if fecha_nacimiento:
+        datos["fecha_nacimiento"] = fecha_nacimiento
+    if tos_optin is not None:
+        datos["tos_optin"] = tos_optin
+    return datos
 
 
 def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
@@ -68,6 +101,8 @@ def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
                 for message in value.get("messages", []) or []:
                     message_type = message.get("type", "text")
                     mensaje_texto = ""
+                    flow_response_json = None
+                    flow_client_data = None
                     if message_type == "text":
                         mensaje_texto = message.get("text", {}).get("body", "")
                     elif message_type == "interactive":
@@ -79,6 +114,8 @@ def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
                                 response_json = json.loads(response_raw) if response_raw else None
                             except Exception:
                                 response_json = None
+                            flow_response_json = response_json
+                            flow_client_data = _extraer_datos_cliente_flow(response_json)
                             mensaje_texto = _extraer_opcion_flow(response_json) or ""
                             if not mensaje_texto:
                                 mensaje_texto = (
@@ -108,6 +145,8 @@ def _extraer_eventos_whatsapp(data: dict) -> tuple[list[dict], list[dict]]:
                             "timestamp": int(message.get("timestamp", time.time())),
                             "raw_message": message,
                             "metadata": metadata,
+                            "flow_response_json": flow_response_json,
+                            "flow_client_data": flow_client_data,
                         }
                     )
                 for status in value.get("statuses", []) or []:
@@ -143,6 +182,17 @@ def _encolar_mensajes(mensajes: list[dict]) -> int:
     ahora_ms = int(time.time() * 1000)
     for datos in mensajes_ordenados:
         metadata = datos.get("metadata") or {}
+        flow_response_json = datos.get("flow_response_json")
+        flow_client_data = datos.get("flow_client_data")
+        inbound_metadata = {
+            "raw": datos.get("raw_message"),
+            "alias_waba": datos.get("alias_waba"),
+            "phone_number_id": metadata.get("phone_number_id"),
+        }
+        if flow_response_json is not None:
+            inbound_metadata["flow_response_json"] = flow_response_json
+        if flow_client_data:
+            inbound_metadata["flow_client_data"] = flow_client_data
         mensaje = GestorMensajes.registrar_entrada(
             phone_number=datos["phone_number"],
             nombre=datos.get("nombre") or "",
@@ -150,11 +200,7 @@ def _encolar_mensajes(mensajes: list[dict]) -> int:
             tipo=datos.get("message_type") or "text",
             timestamp_ms=datos.get("timestamp", int(time.time())) * 1000,
             wa_message_id=datos.get("wa_message_id"),
-            metadata={
-                "raw": datos.get("raw_message"),
-                "alias_waba": datos.get("alias_waba"),
-                "phone_number_id": metadata.get("phone_number_id"),
-            },
+            metadata=inbound_metadata,
             queue_status="pending",
             process_after_ms=ahora_ms,
         )

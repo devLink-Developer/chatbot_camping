@@ -73,7 +73,9 @@ class NavigadorBot:
         return nuevo_estado, nuevo_historial, tipo_contenido, target, True
 
     @staticmethod
-    def obtener_contenido(target: str, tipo: str) -> Optional[Dict]:
+    def obtener_contenido(
+        target: str, tipo: str, menu_contexto_id: Optional[str] = None
+    ) -> Optional[Dict]:
         """Obtiene el contenido a mostrar"""
         if tipo == "menu":
             menu = GestorContenido.obtener_menu(target)
@@ -92,7 +94,10 @@ class NavigadorBot:
                     "id": respuesta.id,
                     "tipo": "respuesta",
                     "categoria": respuesta.categoria,
-                    "contenido": GestorContenido.formatear_respuesta(respuesta),
+                    "contenido": GestorContenido.formatear_respuesta(
+                        respuesta,
+                        menu_contexto_id=menu_contexto_id,
+                    ),
                     "siguientes_pasos": respuesta.siguientes_pasos,
                 }
         elif tipo == "help":

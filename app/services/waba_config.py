@@ -10,6 +10,12 @@ _cache_ts = 0.0
 _cache_value: Optional[WabaConfig] = None
 
 
+def clear_waba_config_cache() -> None:
+    global _cache_ts, _cache_value
+    _cache_ts = 0.0
+    _cache_value = None
+
+
 def get_active_waba_config() -> Optional[WabaConfig]:
     global _cache_ts, _cache_value
     now = time.time()

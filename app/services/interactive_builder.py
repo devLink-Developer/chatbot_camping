@@ -15,6 +15,9 @@ MAX_LIST_BUTTON_TEXT = 20
 MAX_BODY_TEXT = 1024
 MAX_LIST_ROWS = 10
 MAX_FLOW_CTA = 20
+FORCE_LIST_IF_LABEL_LEN_GT = 18
+NAV_MAIN_BUTTON_TITLE = "🏠 Menu principal"
+NAV_BACK_BUTTON_TITLE = "↩️ Volver atras"
 
 
 def _trim(text: str, max_len: int) -> str:
@@ -39,9 +42,9 @@ def _build_options(menu: Menu) -> List[Dict[str, str]]:
     if not menu.is_main and menu.id != "0":
         keys = {opt["key"] for opt in items}
         if "0" not in keys:
-            items.append({"key": "0", "label": "Volver al menu principal"})
+            items.append({"key": "0", "label": "0️⃣ Menu principal"})
         if "#" not in keys:
-            items.append({"key": "#", "label": "Volver atras"})
+            items.append({"key": "#", "label": "#️⃣ Volver atras"})
 
     return items
 
@@ -91,6 +94,32 @@ def build_flow_interactive_payload(
     }
 
 
+def build_navigation_interactive_payload(
+    body_text: Optional[str] = None,
+    include_back: bool = True,
+) -> Dict:
+    body = _trim(body_text or "Elegi una opcion de navegacion", MAX_BODY_TEXT)
+    buttons = [
+        {
+            "type": "reply",
+            "reply": {"id": "0", "title": _trim(NAV_MAIN_BUTTON_TITLE, MAX_BUTTON_TITLE)},
+        }
+    ]
+    if include_back:
+        buttons.append(
+            {
+                "type": "reply",
+                "reply": {"id": "#", "title": _trim(NAV_BACK_BUTTON_TITLE, MAX_BUTTON_TITLE)},
+            }
+        )
+
+    return {
+        "type": "button",
+        "body": {"text": body},
+        "action": {"buttons": buttons},
+    }
+
+
 def _build_list_payload(opciones: List[Dict[str, str]], body: str, section_title: str = "Opciones") -> Dict:
     rows = []
     for opt in opciones:
@@ -120,8 +149,9 @@ def build_menu_interactive_payloads(menu: Menu, body_text: Optional[str] = None)
         return None
 
     base_body = _trim(body_text or menu.titulo or "Selecciona una opcion", MAX_BODY_TEXT)
+    force_list = any(len((opt.get("label") or "").strip()) > FORCE_LIST_IF_LABEL_LEN_GT for opt in opciones)
 
-    if len(opciones) <= MAX_BUTTONS:
+    if len(opciones) <= MAX_BUTTONS and not force_list:
         buttons = []
         for opt in opciones:
             title = _trim(opt["label"] or opt["key"], MAX_BUTTON_TITLE)

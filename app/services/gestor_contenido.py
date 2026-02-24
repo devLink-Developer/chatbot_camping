@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 import unicodedata
 
 from app.models.menu import Menu
@@ -9,6 +9,10 @@ from app.models.config import Config
 
 class GestorContenido:
     """Gestiona menus y respuestas desde BD"""
+
+    NAV_MAIN_LINE = "0️⃣ 🏠 Volver al menu principal"
+    NAV_BACK_LINE = "#️⃣ ↩️ Volver atras"
+    MENU_CONTEXT_PREFIX = "📍 Estas en:"
 
     @staticmethod
     def obtener_menu(menu_id: str) -> Optional[Menu]:
@@ -71,6 +75,51 @@ class GestorContenido:
         return [str(pasos).strip()]
 
     @staticmethod
+    def _menu_es_principal(menu: Optional[Menu]) -> bool:
+        return bool(menu and (menu.is_main or str(menu.id) == "0"))
+
+    @staticmethod
+    def _titulo_menu(menu: Menu) -> str:
+        if GestorContenido._menu_es_principal(menu):
+            return "Menu principal"
+        titulo = (menu.titulo or "").strip()
+        if titulo:
+            return titulo
+        return f"Menu {menu.id}"
+
+    @staticmethod
+    def construir_ruta_menu(menu: Optional[Menu], max_depth: int = 15) -> str:
+        if not menu:
+            return ""
+        ruta: List[str] = []
+        visitados: Set[str] = set()
+        actual = menu
+        while actual and len(ruta) < max_depth:
+            menu_id = str(actual.id)
+            if menu_id in visitados:
+                break
+            visitados.add(menu_id)
+            ruta.append(GestorContenido._titulo_menu(actual))
+            actual = actual.parent
+
+        if not ruta:
+            return ""
+        ruta.reverse()
+        if ruta[0] != "Menu principal" and not GestorContenido._menu_es_principal(menu):
+            ruta.insert(0, "Menu principal")
+        return " > ".join(ruta)
+
+    @staticmethod
+    def obtener_contexto_menu(menu_contexto_id: Optional[str]) -> str:
+        if not menu_contexto_id:
+            return ""
+        menu = GestorContenido.obtener_menu(str(menu_contexto_id))
+        ruta = GestorContenido.construir_ruta_menu(menu)
+        if not ruta:
+            return ""
+        return f"{GestorContenido.MENU_CONTEXT_PREFIX} {ruta}"
+
+    @staticmethod
     def _agregar_navegacion(contenido: str, pasos: List[str]) -> str:
         if contenido:
             lineas = contenido.splitlines()
@@ -87,9 +136,9 @@ class GestorContenido:
 
         nav_lines = []
         if "0" in pasos:
-            nav_lines.append("0 Volver al menu principal")
+            nav_lines.append(GestorContenido.NAV_MAIN_LINE)
         if "#" in pasos:
-            nav_lines.append("# Volver atras")
+            nav_lines.append(GestorContenido.NAV_BACK_LINE)
 
         if nav_lines:
             if contenido:
@@ -100,9 +149,22 @@ class GestorContenido:
         return contenido
 
     @staticmethod
-    def formatear_respuesta(respuesta: Respuesta, incluir_navegacion: bool = True) -> str:
+    def quitar_navegacion(contenido: str) -> str:
+        """Elimina lineas de navegacion 0/# del texto."""
+        return GestorContenido._agregar_navegacion(contenido, [])
+
+    @staticmethod
+    def formatear_respuesta(
+        respuesta: Respuesta,
+        incluir_navegacion: bool = True,
+        menu_contexto_id: Optional[str] = None,
+    ) -> str:
         """Formatea una respuesta para enviar a WhatsApp"""
-        contenido = respuesta.contenido or ""
+        contenido = (respuesta.contenido or "").strip()
+
+        contexto = GestorContenido.obtener_contexto_menu(menu_contexto_id)
+        if contexto and contexto not in contenido:
+            contenido = f"{contexto}\n\n{contenido}".strip()
 
         if incluir_navegacion and respuesta.siguientes_pasos:
             pasos = GestorContenido._coerce_pasos(respuesta.siguientes_pasos)
@@ -111,7 +173,11 @@ class GestorContenido:
         return contenido
 
     @staticmethod
-    def formatear_menu(menu: Menu, incluir_navegacion: bool = True) -> str:
+    def formatear_menu(
+        menu: Menu,
+        incluir_navegacion: bool = True,
+        incluir_contexto: bool = True,
+    ) -> str:
         """Formatea un menu para enviar a WhatsApp"""
         opciones = list(
             MenuOption.objects.filter(menu=menu, activo=True).order_by("orden")
@@ -122,6 +188,10 @@ class GestorContenido:
             cuerpo = (menu.contenido or "").strip()
 
         contenido = f"{menu.titulo}\n\n{cuerpo}".strip()
+        if incluir_contexto and not GestorContenido._menu_es_principal(menu):
+            contexto = GestorContenido.obtener_contexto_menu(menu.id)
+            if contexto:
+                contenido = f"{contexto}\n\n{contenido}".strip()
 
         if incluir_navegacion:
             pasos = []

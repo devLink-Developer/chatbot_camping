@@ -11,11 +11,13 @@ from app.models.menu_option import MenuOption
 from app.models.mensaje import Mensaje
 from app.models.respuesta import Respuesta
 from app.models.sesion import Sesion
+from app.models.waba_config import WabaConfig
 from app.services.gestor_contenido import GestorContenido
 from app.services.queue_processor import (
     procesar_inbound_pendientes,
     procesar_outbound_pendientes,
 )
+from app.services.waba_config import clear_waba_config_cache
 from app import views
 
 
@@ -38,6 +40,8 @@ class ContenidoFormattingTests(TestCase):
         resultado = GestorContenido.formatear_respuesta(respuesta)
         assert resultado.count("Volver al menu principal") == 1
         assert resultado.count("Volver atras") == 1
+        assert "0️⃣" in resultado
+        assert "#️⃣" in resultado
 
     def test_formatear_menu_elimina_navegacion_duplicada(self):
         menu = Menu.objects.create(
@@ -48,6 +52,23 @@ class ContenidoFormattingTests(TestCase):
         resultado = GestorContenido.formatear_menu(menu)
         assert resultado.count("Volver al menu principal") == 1
         assert resultado.count("Volver atras") == 1
+        assert "0️⃣" in resultado
+        assert "#️⃣" in resultado
+
+    def test_formatear_respuesta_incluye_contexto_menu(self):
+        Menu.objects.create(id="0", titulo="Menu", contenido="", is_main=True)
+        Menu.objects.create(id="1", titulo="Instalaciones", contenido="", parent_id="0")
+        respuesta = Respuesta.objects.create(
+            id="R_CTX",
+            categoria="test",
+            contenido="Detalle de instalaciones",
+        )
+        resultado = GestorContenido.formatear_respuesta(
+            respuesta,
+            menu_contexto_id="1",
+        )
+        assert "Estas en:" in resultado
+        assert "Menu principal > Instalaciones" in resultado
 
 
 @override_settings(
@@ -57,6 +78,9 @@ class ContenidoFormattingTests(TestCase):
 )
 class WebhookFlowTests(TestCase):
     def setUp(self):
+        WabaConfig.objects.all().delete()
+        clear_waba_config_cache()
+
         Config.objects.create(
             id="mensaje_bienvenida",
             seccion="mensajes",
@@ -202,6 +226,36 @@ class WebhookFlowTests(TestCase):
             ]
         }
 
+    def _payload_nfm(self, response_json: dict, numero: str = "5491112345678"):
+        message_id = f"wamid.test.{time.time_ns()}"
+        message = {
+            "id": message_id,
+            "from": numero,
+            "timestamp": str(int(time.time())),
+            "type": "interactive",
+            "interactive": {
+                "type": "nfm_reply",
+                "nfm_reply": {
+                    "name": "club_beneficios_form",
+                    "response_json": json.dumps(response_json),
+                },
+            },
+        }
+        return {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [message],
+                                "contacts": [{"profile": {"name": "Tester"}}],
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
     def test_webhook_verificacion_ok(self):
         resp = self.client.get(
             "/webhook/mensajes?hub.mode=subscribe&hub.challenge=123&hub.verify_token=test-token"
@@ -237,6 +291,7 @@ class WebhookFlowTests(TestCase):
         "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
         return_value={"ok": True, "message_id": "wamid.out"},
     )
+    @override_settings(OUTBOUND_DROP_IF_NEWER_INBOUND="False")
     def test_payload_multi_messages(self, mocked_send, mocked_read):
         resp = self.client.post(
             "/webhook/mensajes",
@@ -337,8 +392,11 @@ class WebhookFlowTests(TestCase):
         procesar_outbound_pendientes(limit=10)
         enviado_texto = mocked_send.call_args[0][1]
         assert "Respuesta 1" in enviado_texto
+        assert "Estas en: Menu principal" in enviado_texto
         assert enviado_texto.count("Volver al menu principal") == 1
         assert enviado_texto.count("Volver atras") == 1
+        assert "0️⃣" in enviado_texto
+        assert "#️⃣" in enviado_texto
 
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(
@@ -362,6 +420,214 @@ class WebhookFlowTests(TestCase):
         procesar_outbound_pendientes(limit=10)
         enviado_texto = mocked_send.call_args[0][1]
         assert "Respuesta 1" in enviado_texto
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_nfm_reply_actualiza_datos_cliente(self, mocked_send, mocked_read):
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        nfm_payload = self._payload_nfm(
+            {
+                "nombre_completo": "Juan Perez",
+                "fecha_nacimiento": "1990-10-21",
+                "tos_optin": False,
+            }
+        )
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(nfm_payload),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        cliente = Cliente.objects.filter(phone_number="+541112345678").first()
+        assert cliente is not None
+        assert cliente.nombre == "Juan Perez"
+        assert str(cliente.fecha_nacimiento) == "1990-10-21"
+        assert cliente.marketing_opt_in is False
+
+        inbound_nfm = (
+            Mensaje.objects.filter(direccion="in", tipo="interactive")
+            .order_by("-id")
+            .first()
+        )
+        assert inbound_nfm is not None
+        meta = inbound_nfm.metadata_json or {}
+        assert meta.get("flow_client_data", {}).get("nombre_completo") == "Juan Perez"
+        assert meta.get("accion") == "flow_cliente_actualizado"
+        assert "nombre" in (meta.get("flow_client_data_updated_fields") or [])
+        assert "fecha_nacimiento" in (meta.get("flow_client_data_updated_fields") or [])
+        assert "marketing_opt_in" in (meta.get("flow_client_data_updated_fields") or [])
+        enviado_texto = mocked_send.call_args[0][1]
+        assert "Ya sos parte del Club de Beneficios del Camping ACA" in enviado_texto
+        assert "BAJA" in enviado_texto
+        assert "Opcion 1" in enviado_texto
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_interactive_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.int"},
+    )
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_nfm_reply_con_interactive_envia_confirmacion_y_menu(
+        self,
+        mocked_send_text,
+        mocked_send_interactive,
+        mocked_read,
+    ):
+        WabaConfig.objects.create(
+            name="test-active",
+            active=True,
+            phone_id="123",
+            access_token="token",
+            interactive_enabled=True,
+            flow_enabled=False,
+        )
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        text_calls_before = mocked_send_text.call_count
+        interactive_calls_before = mocked_send_interactive.call_count
+
+        nfm_payload = self._payload_nfm(
+            {
+                "nombre_completo": "Juana Perez",
+                "fecha_nacimiento": "1991-07-11",
+                "tos_optin": True,
+            }
+        )
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(nfm_payload),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        assert mocked_send_text.call_count == text_calls_before + 1
+        assert mocked_send_interactive.call_count == interactive_calls_before + 1
+        confirmacion = mocked_send_text.call_args_list[-1][0][1]
+        assert "Ya sos parte del Club de Beneficios del Camping ACA" in confirmacion
+        assert "BAJA" in confirmacion
+        assert "Opcion 1" not in confirmacion
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_interactive_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.int"},
+    )
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_respuesta_con_interactive_envia_botones_navegacion_en_un_mensaje(
+        self,
+        mocked_send_text,
+        mocked_send_interactive,
+        mocked_read,
+    ):
+        WabaConfig.objects.create(
+            name="test-active-nav",
+            active=True,
+            phone_id="123",
+            access_token="token",
+            interactive_enabled=True,
+            flow_enabled=False,
+        )
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        text_calls_before = mocked_send_text.call_count
+        interactive_calls_before = mocked_send_interactive.call_count
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("1")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        assert mocked_send_text.call_count == text_calls_before
+        assert mocked_send_interactive.call_count == interactive_calls_before + 1
+
+        interactive_payload = mocked_send_interactive.call_args_list[-1][0][1]
+        assert interactive_payload["type"] == "button"
+        body_text = interactive_payload.get("body", {}).get("text", "")
+        assert "Respuesta 1" in body_text
+        assert "Estas en: Menu principal" in body_text
+        assert "Volver al menu principal" not in body_text
+        assert "Volver atras" not in body_text
+
+        botones = interactive_payload.get("action", {}).get("buttons", [])
+        ids = [btn.get("reply", {}).get("id") for btn in botones]
+        assert ids == ["0", "#"]
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_comando_baja_desactiva_promociones_y_muestra_menu(self, mocked_send, mocked_read):
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("BAJA")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        cliente = Cliente.objects.filter(phone_number="+541112345678").first()
+        assert cliente is not None
+        assert cliente.marketing_opt_in is False
+
+        inbound_baja = (
+            Mensaje.objects.filter(direccion="in", contenido="BAJA")
+            .order_by("-id")
+            .first()
+        )
+        assert inbound_baja is not None
+        meta = inbound_baja.metadata_json or {}
+        assert meta.get("accion") == "baja_promociones"
+        assert meta.get("baja_promociones") is True
+
+        enviado_texto = mocked_send.call_args[0][1]
+        assert "Registramos tu BAJA del Club de Beneficios" in enviado_texto
+        assert "A partir de ahora no te enviaremos promociones" in enviado_texto
+        assert "Opcion 1" in enviado_texto
 
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(
@@ -392,8 +658,11 @@ class WebhookFlowTests(TestCase):
         procesar_outbound_pendientes(limit=10)
         enviado_texto = mocked_send.call_args[0][1]
         assert "Contenido con nav" in enviado_texto
+        assert "Estas en: Menu principal > Submenu" in enviado_texto
         assert enviado_texto.count("Volver al menu principal") == 1
         assert enviado_texto.count("Volver atras") == 1
+        assert "0️⃣" in enviado_texto
+        assert "#️⃣" in enviado_texto
 
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(
