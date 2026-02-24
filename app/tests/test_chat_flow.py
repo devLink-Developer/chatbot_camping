@@ -581,6 +581,7 @@ class WebhookFlowTests(TestCase):
         body_text = interactive_payload.get("body", {}).get("text", "")
         assert "Respuesta 1" in body_text
         assert "Estas en: Menu principal" in body_text
+        assert "\n" in body_text
         assert "Volver al menu principal" not in body_text
         assert "Volver atras" not in body_text
 

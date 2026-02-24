@@ -20,10 +20,24 @@ NAV_MAIN_BUTTON_TITLE = "🏠 Menu principal"
 NAV_BACK_BUTTON_TITLE = "↩️ Volver atras"
 
 
-def _trim(text: str, max_len: int) -> str:
+def _trim(text: str, max_len: int, preserve_newlines: bool = False) -> str:
     if not text:
         return ""
-    text = " ".join(str(text).split())
+    text = str(text).replace("\r\n", "\n").replace("\r", "\n")
+    if preserve_newlines:
+        lines = [" ".join(line.split()) for line in text.split("\n")]
+        compact_lines = []
+        prev_blank = False
+        for line in lines:
+            if line:
+                compact_lines.append(line)
+                prev_blank = False
+            elif not prev_blank:
+                compact_lines.append("")
+                prev_blank = True
+        text = "\n".join(compact_lines).strip()
+    else:
+        text = " ".join(text.split())
     if len(text) <= max_len:
         return text
     return text[: max_len - 3].rstrip() + "..."
@@ -72,7 +86,11 @@ def build_flow_interactive_payload(
         return None
 
     screen_id = _find_first_screen_id(menu.flow_json)
-    body = _trim(body_text or menu.titulo or "Selecciona una opcion", MAX_BODY_TEXT)
+    body = _trim(
+        body_text or menu.titulo or "Selecciona una opcion",
+        MAX_BODY_TEXT,
+        preserve_newlines=True,
+    )
     cta = _trim(cta_text, MAX_FLOW_CTA) or "Ver opciones"
     flow_token = f"menu_{menu.id}_{int(time.time())}"
 
@@ -98,7 +116,11 @@ def build_navigation_interactive_payload(
     body_text: Optional[str] = None,
     include_back: bool = True,
 ) -> Dict:
-    body = _trim(body_text or "Elegi una opcion de navegacion", MAX_BODY_TEXT)
+    body = _trim(
+        body_text or "Elegi una opcion de navegacion",
+        MAX_BODY_TEXT,
+        preserve_newlines=True,
+    )
     buttons = [
         {
             "type": "reply",
