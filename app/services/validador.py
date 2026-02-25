@@ -36,6 +36,10 @@ class ValidadorEntrada:
     COMANDOS_ESPECIALES = {
         "0": {"accion": "ir_menu_principal", "target": "0"},
         "MENU": {"accion": "ir_menu_principal", "target": "0"},
+        "CLUB": {"accion": "ir_club_beneficios", "target": "club"},
+        "BENEFICIOS": {"accion": "ir_club_beneficios", "target": "club"},
+        "PROMOS": {"accion": "ir_club_beneficios", "target": "club"},
+        "PROMOCIONES": {"accion": "ir_club_beneficios", "target": "club"},
         "#": {"accion": "volver_anterior", "target": "auto"},
         "BACK": {"accion": "volver_anterior", "target": "auto"},
         "VOLVER": {"accion": "volver_anterior", "target": "auto"},

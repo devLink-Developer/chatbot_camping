@@ -16,28 +16,17 @@ MAX_BODY_TEXT = 1024
 MAX_LIST_ROWS = 10
 MAX_FLOW_CTA = 20
 FORCE_LIST_IF_LABEL_LEN_GT = 18
+CLUB_OPTION_ID = "CLUB"
+CLUB_OPTION_LABEL = "🎁 Club de beneficios"
 NAV_MAIN_BUTTON_TITLE = "🏠 Menu principal"
 NAV_BACK_BUTTON_TITLE = "↩️ Volver atras"
+NAV_CLUB_BUTTON_TITLE = "🎁 Club beneficios"
 
 
-def _trim(text: str, max_len: int, preserve_newlines: bool = False) -> str:
+def _trim(text: str, max_len: int) -> str:
     if not text:
         return ""
-    text = str(text).replace("\r\n", "\n").replace("\r", "\n")
-    if preserve_newlines:
-        lines = [" ".join(line.split()) for line in text.split("\n")]
-        compact_lines = []
-        prev_blank = False
-        for line in lines:
-            if line:
-                compact_lines.append(line)
-                prev_blank = False
-            elif not prev_blank:
-                compact_lines.append("")
-                prev_blank = True
-        text = "\n".join(compact_lines).strip()
-    else:
-        text = " ".join(text.split())
+    text = " ".join(str(text).split())
     if len(text) <= max_len:
         return text
     return text[: max_len - 3].rstrip() + "..."
@@ -55,6 +44,8 @@ def _build_options(menu: Menu) -> List[Dict[str, str]]:
 
     if not menu.is_main and menu.id != "0":
         keys = {opt["key"] for opt in items}
+        if CLUB_OPTION_ID not in keys:
+            items.append({"key": CLUB_OPTION_ID, "label": CLUB_OPTION_LABEL})
         if "0" not in keys:
             items.append({"key": "0", "label": "0️⃣ Menu principal"})
         if "#" not in keys:
@@ -86,11 +77,7 @@ def build_flow_interactive_payload(
         return None
 
     screen_id = _find_first_screen_id(menu.flow_json)
-    body = _trim(
-        body_text or menu.titulo or "Selecciona una opcion",
-        MAX_BODY_TEXT,
-        preserve_newlines=True,
-    )
+    body = _trim(body_text or menu.titulo or "Selecciona una opcion", MAX_BODY_TEXT)
     cta = _trim(cta_text, MAX_FLOW_CTA) or "Ver opciones"
     flow_token = f"menu_{menu.id}_{int(time.time())}"
 
@@ -114,19 +101,24 @@ def build_flow_interactive_payload(
 
 def build_navigation_interactive_payload(
     body_text: Optional[str] = None,
+    include_club: bool = True,
     include_back: bool = True,
 ) -> Dict:
-    body = _trim(
-        body_text or "Elegi una opcion de navegacion",
-        MAX_BODY_TEXT,
-        preserve_newlines=True,
-    )
-    buttons = [
+    body = _trim(body_text or "Elegi una opcion de navegacion", MAX_BODY_TEXT)
+    buttons = []
+    if include_club:
+        buttons.append(
+            {
+                "type": "reply",
+                "reply": {"id": CLUB_OPTION_ID, "title": _trim(NAV_CLUB_BUTTON_TITLE, MAX_BUTTON_TITLE)},
+            }
+        )
+    buttons.append(
         {
             "type": "reply",
             "reply": {"id": "0", "title": _trim(NAV_MAIN_BUTTON_TITLE, MAX_BUTTON_TITLE)},
         }
-    ]
+    )
     if include_back:
         buttons.append(
             {
@@ -194,8 +186,16 @@ def build_menu_interactive_payloads(menu: Menu, body_text: Optional[str] = None)
     if len(opciones) <= MAX_LIST_ROWS:
         return [_build_list_payload(opciones, base_body)]
 
-    # Si supera el maximo de filas, no enviamos interactivo: el bot responde solo texto o flow.
-    return None
+    payloads: List[Dict] = []
+    total_chunks = (len(opciones) + MAX_LIST_ROWS - 1) // MAX_LIST_ROWS
+    for idx in range(total_chunks):
+        start = idx * MAX_LIST_ROWS
+        end = start + MAX_LIST_ROWS
+        chunk = opciones[start:end]
+        chunk_body = base_body if idx == 0 else _trim("Mas opciones disponibles", MAX_BODY_TEXT)
+        section_title = f"Opciones {idx + 1}/{total_chunks}" if total_chunks > 1 else "Opciones"
+        payloads.append(_build_list_payload(chunk, chunk_body, section_title=section_title))
+    return payloads
 
 
 def build_menu_interactive(menu: Menu, body_text: Optional[str] = None) -> Optional[Dict]:

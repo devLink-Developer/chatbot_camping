@@ -10,6 +10,8 @@ from app.models.config import Config
 class GestorContenido:
     """Gestiona menus y respuestas desde BD"""
 
+    CLUB_SHORTCUT_KEY = "CLUB"
+    NAV_CLUB_LINE = "🎁 CLUB Club de beneficios"
     NAV_MAIN_LINE = "0️⃣ 🏠 Volver al menu principal"
     NAV_BACK_LINE = "#️⃣ ↩️ Volver atras"
     MENU_CONTEXT_PREFIX = "📍 Estas en:"
@@ -58,6 +60,29 @@ class GestorContenido:
             .select_related("target_menu", "target_respuesta")
             .first()
         )
+
+    @staticmethod
+    def _es_opcion_club_beneficios(label: str) -> bool:
+        label_norm = GestorContenido._normalizar_contenido(label or "")
+        if "club" not in label_norm:
+            return False
+        return any(term in label_norm for term in ("beneficio", "promo", "descuento"))
+
+    @staticmethod
+    def obtener_opcion_club_beneficios() -> Optional[MenuOption]:
+        """Busca en el menu principal la opcion que apunta al Club de Beneficios."""
+        menu_principal = GestorContenido.obtener_menu_principal()
+        if not menu_principal:
+            return None
+        opciones = (
+            MenuOption.objects.filter(menu=menu_principal, activo=True)
+            .select_related("target_menu", "target_respuesta")
+            .order_by("orden")
+        )
+        for opcion in opciones:
+            if GestorContenido._es_opcion_club_beneficios(opcion.label):
+                return opcion
+        return None
 
     @staticmethod
     def _normalizar_contenido(texto: str) -> str:
@@ -127,14 +152,25 @@ class GestorContenido:
             for linea in lineas:
                 linea_norm = GestorContenido._normalizar_contenido(linea).strip()
                 if (
-                    ("volver al menu principal" in linea_norm or "volver atras" in linea_norm)
-                    and (linea_norm.startswith("0") or linea_norm.startswith("#") or linea_norm.startswith("volver"))
+                    (
+                        "volver al menu principal" in linea_norm
+                        or "volver atras" in linea_norm
+                        or "club de beneficios" in linea_norm
+                    )
+                    and (
+                        linea_norm.startswith("0")
+                        or linea_norm.startswith("#")
+                        or linea_norm.startswith("volver")
+                        or GestorContenido.CLUB_SHORTCUT_KEY.lower() in linea_norm[:12]
+                    )
                 ):
                     continue
                 lineas_limpias.append(linea)
             contenido = "\n".join(lineas_limpias).rstrip()
 
         nav_lines = []
+        if GestorContenido.CLUB_SHORTCUT_KEY in pasos:
+            nav_lines.append(GestorContenido.NAV_CLUB_LINE)
         if "0" in pasos:
             nav_lines.append(GestorContenido.NAV_MAIN_LINE)
         if "#" in pasos:
@@ -196,7 +232,7 @@ class GestorContenido:
         if incluir_navegacion:
             pasos = []
             if not menu.is_main and menu.id != "0":
-                pasos = ["0", "#"]
+                pasos = [GestorContenido.CLUB_SHORTCUT_KEY, "0", "#"]
             contenido = GestorContenido._agregar_navegacion(contenido, pasos)
 
         return contenido

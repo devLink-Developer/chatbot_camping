@@ -38,6 +38,26 @@ class NavigadorBot:
             nuevo_estado = "0"
             tipo_contenido = "menu"
             target = "0"
+        elif accion == "ir_club_beneficios":
+            opcion_club = GestorContenido.obtener_opcion_club_beneficios()
+            if opcion_club and opcion_club.target_menu_id:
+                nuevo_historial = ["0"]
+                nuevo_estado = opcion_club.target_menu_id
+                if nuevo_estado not in nuevo_historial:
+                    nuevo_historial.append(nuevo_estado)
+                tipo_contenido = "menu"
+                target = opcion_club.target_menu_id
+            elif opcion_club and opcion_club.target_respuesta_id:
+                nuevo_historial = ["0"]
+                nuevo_estado = "0"
+                tipo_contenido = "respuesta"
+                target = opcion_club.target_respuesta_id
+            else:
+                # Fallback seguro: si no hay opcion configurada, vuelve al menu principal.
+                nuevo_historial = ["0"]
+                nuevo_estado = "0"
+                tipo_contenido = "menu"
+                target = "0"
         elif accion == "volver_anterior":
             if ultimo_tipo == "respuesta":
                 nuevo_estado = estado_actual

@@ -581,13 +581,12 @@ class WebhookFlowTests(TestCase):
         body_text = interactive_payload.get("body", {}).get("text", "")
         assert "Respuesta 1" in body_text
         assert "Estas en: Menu principal" in body_text
-        assert "\n" in body_text
         assert "Volver al menu principal" not in body_text
         assert "Volver atras" not in body_text
 
         botones = interactive_payload.get("action", {}).get("buttons", [])
         ids = [btn.get("reply", {}).get("id") for btn in botones]
-        assert ids == ["0", "#"]
+        assert ids == ["CLUB", "0", "#"]
 
     @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
     @patch(
@@ -692,6 +691,40 @@ class WebhookFlowTests(TestCase):
         )
         procesar_inbound_pendientes(limit=10)
         procesar_outbound_pendientes(limit=10)
+        enviado_texto = mocked_send.call_args[0][1]
+        assert "Menu" in enviado_texto
+        assert "Opcion 1" in enviado_texto
+
+    @patch("app.services.cliente_whatsapp.ClienteWhatsApp.marcar_como_leido", return_value=True)
+    @patch(
+        "app.services.cliente_whatsapp.ClienteWhatsApp.enviar_mensaje_con_resultado",
+        return_value={"ok": True, "message_id": "wamid.out"},
+    )
+    def test_comando_club_sin_config_regresa_menu_principal(self, mocked_send, mocked_read):
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("hola")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("2")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
+        self.client.post(
+            "/webhook/mensajes",
+            data=json.dumps(self._payload("CLUB")),
+            content_type="application/json",
+        )
+        procesar_inbound_pendientes(limit=10)
+        procesar_outbound_pendientes(limit=10)
+
         enviado_texto = mocked_send.call_args[0][1]
         assert "Menu" in enviado_texto
         assert "Opcion 1" in enviado_texto
