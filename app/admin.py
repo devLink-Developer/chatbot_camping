@@ -337,7 +337,7 @@ class MensajeAdmin(admin.ModelAdmin):
         "timestamp_ms",
         "created_at",
     )
-    list_filter = ("direccion", "tipo", "queue_status", "delivery_status", "phone_number", "created_at")
+    list_filter = ("direccion", "tipo", "queue_status", "delivery_status", "created_at")
     search_fields = ("phone_number", "contenido", "wa_message_id")
     ordering = ("-created_at",)
     readonly_fields = (
