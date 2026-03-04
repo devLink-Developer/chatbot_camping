@@ -4,6 +4,7 @@ from app import views
 
 urlpatterns = [
     path("", views.root),
+    path("catalog-media/<path:relpath>", views.catalog_media),
     path("api/health", views.health_check),
     path("api/webhook", views.webhook),
     path("webhook/mensajes", views.webhook_mensajes),

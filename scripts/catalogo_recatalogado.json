@@ -1,0 +1,169 @@
+{
+  "fuente": "recatalogacion_manual",
+  "fecha_recatalogacion": "2026-03-04",
+  "total_fotos": 25,
+  "categorias": {
+    "bosque": [
+      {
+        "categoria": "bosque",
+        "descripcion": "Un pulmon verde de 25 hectareas para desconectar de verdad: sombra, silencio y aire puro.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/bosque/bosque.jpg"
+      },
+      {
+        "categoria": "bosque",
+        "descripcion": "Caminos entre arboles anosos para paseos tranquilos, mates largos y descanso real en familia.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/bosque/m-01.jpg"
+      }
+    ],
+    "camping": [
+      {
+        "categoria": "camping",
+        "descripcion": "Atardeceres que invitan a quedarse: el cierre perfecto para un dia de camping inolvidable.",
+        "pagina": "home",
+        "archivo_local": "fotos_camping/camping/atardecerjpg.jpg"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Sector de acampe entre arboles, ideal para instalar la carpa con privacidad y buena sombra.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/camping/bosque_carpas.jpg"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Mesas y espacios verdes listos para picnic, reuniones y tardes al aire libre.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/camping/camping_arboles.jpg"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Vista aerea del predio: amplitud, senderos y naturaleza organizada para disfrutar sin estres.",
+        "pagina": "home",
+        "archivo_local": "fotos_camping/camping/camping_arriba.jpg"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Panoramica aerea del camping: entorno seguro, verde y pensado para escapadas de fin de semana.",
+        "pagina": "home",
+        "archivo_local": "fotos_camping/camping/camping_arriba2.jpg"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Tu carpa, tu espacio: acampe comodo en una zona arbolada, fresca y bien mantenida.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/camping/carpa.webp"
+      },
+      {
+        "categoria": "camping",
+        "descripcion": "Mas sectores de acampe para elegir el lugar ideal segun tu grupo y plan del dia.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/instalaciones/w-009_orig.jpg"
+      }
+    ],
+    "deportes": [
+      {
+        "categoria": "deportes",
+        "descripcion": "Cancha multiproposito para activarte en equipo y sumar deporte a la jornada.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/cancha.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Sector de padel para partidos entre amigos y entrenamientos recreativos.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/padel.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Cancha de tenis para jugar, entrenar y disfrutar del deporte en un entorno natural.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/tenis.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Bicicletas disponibles para recorrer el predio y moverte con libertad.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/bici-0_orig.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Paseos en bicicleta bajo la arboleda: actividad ideal para todas las edades.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/bici-2_orig.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Canchas y espacios deportivos para mantener el ritmo sin salir del camping.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/deportes/retocada_orig.jpg"
+      },
+      {
+        "categoria": "deportes",
+        "descripcion": "Parque de bicicletas en excelentes condiciones para salidas recreativas.",
+        "pagina": "novedades",
+        "archivo_local": "fotos_camping/instalaciones/w-001_orig.jpg"
+      }
+    ],
+    "pileta": [
+      {
+        "categoria": "pileta",
+        "descripcion": "Pileta principal con ambiente familiar: diversion, descanso y verano a pleno.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/pileta/pileta_con_personas.webp"
+      },
+      {
+        "categoria": "pileta",
+        "descripcion": "Sector de pileta para refrescarse y disfrutar con chicos y grandes.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/pileta/pileta_orig.jpg"
+      },
+      {
+        "categoria": "pileta",
+        "descripcion": "Vista general de la piscina: amplitud y entorno verde para relajarse.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/pileta/Pileta_plano_general.jpg"
+      },
+      {
+        "categoria": "pileta",
+        "descripcion": "Jornadas de pileta con amigos y familia en un espacio cuidado y seguro.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/pileta/pileta2.jpg"
+      },
+      {
+        "categoria": "pileta",
+        "descripcion": "Zona de agua ideal para bajar un cambio y aprovechar cada tarde al sol.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/pileta/011_orig.jpg"
+      }
+    ],
+    "instalaciones": [
+      {
+        "categoria": "instalaciones",
+        "descripcion": "Parrillas y mesas distribuidas en el predio para almuerzos al aire libre sin complicaciones.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/instalaciones/parillas.webp"
+      },
+      {
+        "categoria": "instalaciones",
+        "descripcion": "Salon de juegos con mesas de pool para sumar entretenimiento incluso si cambia el clima.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/instalaciones/pool.jpg"
+      },
+      {
+        "categoria": "instalaciones",
+        "descripcion": "Carteleria y mapa del predio para ubicar rapido cada servicio y moverte con comodidad.",
+        "pagina": "home",
+        "archivo_local": "fotos_camping/camping/Carteleria.webp"
+      }
+    ],
+    "recreacion": [
+      {
+        "categoria": "recreacion",
+        "descripcion": "Espacios de recreacion y descanso para disfrutar una pausa real en contacto con la naturaleza.",
+        "pagina": "servicios",
+        "archivo_local": "fotos_camping/recreacion/a1_orig.jpg"
+      }
+    ]
+  }
+}

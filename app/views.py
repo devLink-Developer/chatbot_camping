@@ -1,10 +1,12 @@
 import json
 import logging
+import mimetypes
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -345,6 +347,26 @@ def resetear_sesion(request, phone_number: str):
         sesion.save()
         return JsonResponse({"status": "ok", "mensaje": "Sesion reseteada"})
     return JsonResponse({"status": "error", "mensaje": "Sesion no encontrada"}, status=404)
+
+
+@require_http_methods(["GET"])
+def catalog_media(request, relpath: str):
+    """Sirve imagenes locales del catalogo para su indexacion en Meta."""
+    base_dir = (Path(settings.BASE_DIR) / "fotos_camping").resolve()
+    target = (Path(settings.BASE_DIR) / relpath).resolve()
+
+    try:
+        target.relative_to(base_dir)
+    except ValueError:
+        raise Http404("Archivo no encontrado")
+
+    if not target.is_file():
+        raise Http404("Archivo no encontrado")
+
+    content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    response = FileResponse(target.open("rb"), content_type=content_type)
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @require_http_methods(["GET"])
